@@ -1,15 +1,14 @@
-fastapi==0.104.1
-uvicorn==0.24.0
-strands-agents==0.1.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+strands-agents>=1.17.0
+strands-agents-tools>=0.2.0
 requests==2.31.0
-pydantic==2.5.0
+pydantic>=2.7.0,<3.0.0
 python-dotenv==1.0.0
-beautifulsoup4==4.12.2
+beautifulsoup4>=4.12.3,<5.0.0
 
 # LlamaIndex and dependencies for RAG
-llama-index==0.11.23
-llama-index-embeddings-openai==0.3.1
-llama-index-llms-openai==0.3.3
+llama-index>=0.12.0
 openai==1.58.1
 pypdf==5.1.0
 python-multipart==0.0.20
@@ -20,3 +19,4 @@ google-auth-oauthlib==1.2.0
 google-auth-httplib2==0.2.0
 google-api-python-client==2.116.0
 google-generativeai==0.8.5
+google-genai>=1.51.0

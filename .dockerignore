@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Environment variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+logs/
+server.log
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Documentation
+*.md
+LICENSE
+
+# Build files
+*.egg-info/
+dist/
+build/
+
+# Local data
+uploads/*
+vector_db/*
+models/*
+llama.cpp/
+
+# Scripts
+*.sh
+run.sh
+run_morning_brief.sh
+
+# Test files
+test_*.py
+check_*.py
+tempAgent.py
+types_output.txt
+test_document.txt
+
+# Setup
+.setup_complete
+
+# Frontend build (if you build separately)
+frontend/node_modules/

@@ -9,8 +9,15 @@ from ..logging_config import get_logger
 
 logger = get_logger("chatbot.tools.google_maps")
 
-# Initialize Gemini client
-client = genai.Client(api_key=Config.GEMINI_API_KEY)
+# Lazy-load Gemini client to avoid initialization errors when env vars are missing
+_client = None
+
+def _get_client():
+    """Get or initialize the Gemini client."""
+    global _client
+    if _client is None:
+        _client = genai.Client(api_key=Config.GEMINI_API_KEY)
+    return _client
 
 # Default coordinates (Hyderabad, India)
 DEFAULT_LATITUDE = 17.473863
@@ -37,6 +44,7 @@ def query_maps_with_gemini(
     """
     try:
         logger.info(f"Maps query: '{query}' at ({latitude}, {longitude})")
+        client = _get_client()
 
         response = client.models.generate_content(
             model='gemini-2.5-flash',
