@@ -1,0 +1,10 @@
+{
+  "name": "aetherai-frontend",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Minimal AetherAI frontend (placeholder)",
+  "scripts": {
+    "start": "npx http-server -c-1 . -p 3000"
+  },
+  "license": "MIT"
+}

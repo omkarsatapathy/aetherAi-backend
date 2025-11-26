@@ -57,6 +57,7 @@ frontend/database/
 # Vector Database Storage
 vector_db/
 storage/
+database/
 
 # Uploaded Documents
 uploads/
