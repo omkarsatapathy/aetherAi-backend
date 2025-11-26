@@ -1,22 +1,34 @@
 # Use Python 3.11 slim image for smaller size
-FROM python:3.11-slim
+FROM python:3.11-slim AS base
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (cached layer)
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
+# ============================================
+# Dependencies layer (only rebuilt when requirements change)
+# ============================================
+FROM base AS dependencies
+
 # Copy requirements first for better caching
 COPY requirements.txt .
 
 # Install Python dependencies
+# This layer is cached and only rebuilt when requirements.txt changes
 RUN pip install --no-cache-dir -r requirements.txt
 
+# ============================================
+# Final application layer (rebuilt on every code change)
+# ============================================
+FROM dependencies AS application
+
 # Copy application code
+# These layers are rebuilt when code changes
 COPY backend.py .
 COPY src/ ./src/
 COPY frontend/ ./frontend/

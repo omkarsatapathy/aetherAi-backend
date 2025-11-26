@@ -60,3 +60,11 @@ storage/
 
 # Uploaded Documents
 uploads/
+
+# Deployment cache
+.deployment_cache
+
+# Skaffold cache and build files
+.skaffold/cache/
+skaffold.out
+.skaffold/*.log

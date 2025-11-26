@@ -240,6 +240,8 @@ async def create_streaming_response(
                         logger.debug(f"Filtering handoff JSON from response: {text_chunk[:50]}...")
                         continue
                     complete_response += text_chunk
+                    # Stream the text chunk to the frontend
+                    yield f"event: message\ndata: {json.dumps({'chunk': text_chunk})}\n\n"
 
                 # Capture tool results to extract maps widget metadata
                 elif "message" in inner_event:

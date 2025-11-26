@@ -155,6 +155,50 @@ If you encounter CORS errors, ensure the backend CORS middleware is properly con
 2. Verify the `frontend/` directory exists with all files
 3. Check browser console for errors
 
+## Deployment
+
+### Deploy to Google Cloud Run
+
+This project includes multiple deployment methods:
+
+#### Method 1: Skaffold (Recommended for Development)
+
+Skaffold provides automated build, deploy, and continuous development workflows.
+
+```bash
+# Quick deployment
+./skaffold-deploy.sh run
+
+# Development mode (auto-rebuild on file changes)
+./skaffold-deploy.sh dev
+
+# Production deployment
+./skaffold-deploy.sh prod
+```
+
+For detailed Skaffold usage, see [SKAFFOLD_GUIDE.md](./SKAFFOLD_GUIDE.md)
+
+#### Method 2: Traditional Script (Simple)
+
+Use the deployment script for straightforward deployments:
+
+```bash
+./deploy.sh
+```
+
+This script:
+- Builds the Docker image with layer caching
+- Deploys to Google Cloud Run
+- Manages smart dependency caching
+
+### Deployment Files
+
+- `skaffold.yaml` - Skaffold configuration with dev/staging/prod profiles
+- `deploy.sh` - Traditional deployment script
+- `cloudbuild.yaml` - Cloud Build configuration
+- `Dockerfile` - Multi-stage Docker build
+- `.skaffold/service.yaml` - Cloud Run service specification
+
 ## Next Steps
 
 This is a basic implementation. You can enhance it by:

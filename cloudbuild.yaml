@@ -1,12 +1,29 @@
 # Cloud Build configuration for automated deployment
-steps:
-  # Build the container image
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/agentic-chatbot:$SHORT_SHA', '.']
+# Features:
+# - Docker BuildKit for improved caching
+# - Multi-stage builds for layer reuse
+# - Kaniko for better layer caching in GCP
 
-  # Push the container image to Container Registry
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/agentic-chatbot:$SHORT_SHA']
+options:
+  # Use Kaniko for better layer caching
+  machineType: 'E2_HIGHCPU_8'
+  diskSizeGb: 100
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  # Build the container image with caching
+  # Using Kaniko for better layer caching in Cloud Build
+  - name: 'gcr.io/kaniko-project/executor:latest'
+    args:
+      - --destination=gcr.io/$PROJECT_ID/agentic-chatbot:$SHORT_SHA
+      - --destination=gcr.io/$PROJECT_ID/agentic-chatbot:latest
+      - --cache=true
+      - --cache-ttl=168h  # Cache for 7 days
+      - --cache-repo=gcr.io/$PROJECT_ID/agentic-chatbot-cache
+      - --compressed-caching=false
+      - --snapshot-mode=redo
+      - --build-arg=BUILDKIT_INLINE_CACHE=1
+    timeout: 1200s
 
   # Deploy container image to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -30,8 +47,17 @@ steps:
       - '2'
       - '--max-instances'
       - '10'
+      - '--min-instances'
+      - '0'
+      - '--timeout'
+      - '300'
       - '--set-env-vars'
       - 'ENVIRONMENT=production'
 
+# Tag both commit SHA and latest
 images:
   - 'gcr.io/$PROJECT_ID/agentic-chatbot:$SHORT_SHA'
+  - 'gcr.io/$PROJECT_ID/agentic-chatbot:latest'
+
+# Build timeout
+timeout: 2400s

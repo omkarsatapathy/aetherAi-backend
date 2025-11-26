@@ -66,3 +66,11 @@ test_document.txt
 
 # Frontend build (if you build separately)
 frontend/node_modules/
+
+# Deployment cache
+.deployment_cache
+
+# Database files
+*.db
+*.db-journal
+frontend/database/

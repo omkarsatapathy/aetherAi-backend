@@ -1,0 +1,119 @@
+/* CSS Variables for Theming */
+:root {
+    /* Light Theme (Default) */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f7f7f8;
+    --bg-tertiary: #ececf1;
+    --bg-sidebar: #f9f9f9;
+    --bg-hover: #f0f0f0;
+    --bg-active: #ebebeb;
+    --bg-input: #ffffff;
+    --bg-message-user: #f7f7f8;
+    --bg-message-bot: #ffffff;
+
+    --text-primary: #0d0d0d;
+    --text-secondary: #6e6e80;
+    --text-tertiary: #8e8ea0;
+    --text-placeholder: #8e8ea0;
+
+    --border-color: #e5e5e5;
+    --border-light: #ececf1;
+
+    --accent-color: #4169E1;
+    --accent-hover: #3457c9;
+    --accent-light: rgba(65, 105, 225, 0.1);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.1);
+
+    --radius-sm: 6px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+}
+
+/* Dark Theme */
+[data-theme="dark"] {
+    --bg-primary: #1F273D;
+    --bg-secondary: #171d2d;
+    --bg-tertiary: #252d44;
+    --bg-sidebar: #171d2d;
+    --bg-hover: #2a3350;
+    --bg-active: #323b55;
+    --bg-input: #252d44;
+    --bg-message-user: #252d44;
+    --bg-message-bot: #1F273D;
+
+    --text-primary: #ececf1;
+    --text-secondary: #b4b4c0;
+    --text-tertiary: #8e8ea0;
+    --text-placeholder: #6e6e80;
+
+    --border-color: #3a4359;
+    --border-light: #2a3350;
+
+    --accent-color: #4169E1;
+    --accent-hover: #5a7fe8;
+    --accent-light: rgba(65, 105, 225, 0.15);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* Global resets and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height - accounts for browser chrome */
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.container {
+    width: 100%;
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height */
+    display: flex;
+    position: relative;
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}
+
+/* Firefox scrollbar */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
+}

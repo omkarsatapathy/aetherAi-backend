@@ -34,7 +34,7 @@ class OpenAIProvider(BaseModelProvider):
             client_args={"api_key": self.api_key},
             model_id=self.model_id,
             params={
-                "max_tokens": self.max_tokens,
+                "max_completion_tokens": self.max_tokens,
                 "temperature": self.temperature,
                 "stream_options": {"include_usage": True},  # Include usage in streaming response
             }
