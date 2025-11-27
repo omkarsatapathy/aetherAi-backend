@@ -12,9 +12,17 @@ sys.path.append(str(Path(__file__).parent / "src"))
 
 from src.api import create_app
 from src.config import Config
+from src.api.routes.image_routes import router as image_router  # Import image router
+from src.api.routes.test_endpoint import router as test_router  # Import test router
+from src.api.routes.chat_simple import router as chat_simple_router  # Import chat_simple router
 
 # Create the FastAPI application
 app = create_app()
+
+# Register the image router
+app.include_router(image_router)
+app.include_router(test_router)  # Register the test router
+app.include_router(chat_simple_router)  # Register the chat_simple router
 
 
 if __name__ == "__main__":

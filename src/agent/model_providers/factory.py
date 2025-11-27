@@ -109,7 +109,7 @@ class ModelProviderFactory:
         Raises:
             RuntimeError: If no providers are available
         """
-        priority_order = ["llamacpp-gpt-oss", "llamacpp-qwen3", "openai", "gemini"]
+        priority_order = ["gemini","llamacpp-gpt-oss", "llamacpp-qwen3", "openai"]
 
         for provider_name in priority_order:
             try:

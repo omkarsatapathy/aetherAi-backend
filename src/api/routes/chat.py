@@ -4,31 +4,50 @@ from fastapi.responses import StreamingResponse
 from src.api.models import ChatRequest
 from src.agent.streaming_agent import create_streaming_response
 from src.logging_config import get_logger
-from typing import Optional
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel
 
 logger = get_logger("chatbot.routes.chat")
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
 
+# Add/update the request model to match what Swagger expects
+class ChatStreamRequest(BaseModel):
+    """Request model for chat streaming that matches frontend payload."""
+    message: str  # For Swagger UI - simple message
+    session_id: Optional[str] = None
+    model_provider: Optional[str] = "gemini-2.0-flash"
+    response_style: Optional[str] = "Normal"
+    web_search: bool = False
+    conversation_history: List[Dict[str, Any]] = []
+    
+    # Alternative fields for direct message object (from frontend)
+    id: Optional[int] = None
+    role: Optional[str] = None
+    content: Optional[str] = None
+    timestamp: Optional[str] = None
+
+
 @router.post("/chat/stream")
-async def chat_stream_post(request: ChatRequest):
+async def chat_stream_post(request: ChatStreamRequest):
     """
     Stream chat responses with real-time tool execution updates (POST).
-
-    Args:
-        request: ChatRequest containing message, conversation history, and optional session_id
-
-    Returns:
-        StreamingResponse with Server-Sent Events (SSE)
     """
-    logger.info(f"Chat request received (POST): {request.message[:50]}...")
+    # Handle both formats
+    message = request.content if request.content else request.message
+    session_id = request.session_id
+    
+    # DEBUG: Log the actual model_provider being used
+    logger.info(f"Chat request - Message: {message[:50]}...")
+    logger.info(f"Chat request - Model Provider: {request.model_provider}")
+    logger.info(f"Chat request - Full request: {request.model_dump()}")
 
     return StreamingResponse(
         create_streaming_response(
-            message=request.message,
+            message=message,
             conversation_history=request.conversation_history,
-            session_id=request.session_id,
+            session_id=session_id,
             model_provider=request.model_provider,
             response_style=request.response_style
         ),
