@@ -52,7 +52,12 @@ steps:
       - '--timeout'
       - '300'
       - '--set-env-vars'
-      - 'ENVIRONMENT=production'
+      - 'ENVIRONMENT=production,LOG_LEVEL=WARNING,LOG_TO_FILE=False,LOG_TO_CONSOLE=True,FASTAPI_HOST=0.0.0.0,FASTAPI_PORT=8080'
+      # Add your API keys via Secret Manager or set them after deployment:
+      # - '--update-secrets=GEMINI_API_KEY=gemini-api-key:latest'
+      # - '--update-secrets=GOOGLE_SEARCH_API_KEY=google-search-key:latest'
+      - '--cpu-boost'
+      - '--no-cpu-throttling'
 
 # Tag both commit SHA and latest
 images:

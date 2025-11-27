@@ -11,98 +11,106 @@ class DatabaseManager:
     def __init__(self, db_path: str = "frontend/database/chat_history.db"):
         """Initialize database manager."""
         self.db_path = db_path
-        # Ensure directory exists
-        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        # Ensure directory exists (handle Cloud Run's ephemeral filesystem)
+        try:
+            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        except (PermissionError, OSError) as e:
+            print(f"Warning: Could not create database directory: {e}")
+            # Fall back to /tmp in Cloud Run
+            self.db_path = "/tmp/chat_history.db"
         self._init_db()
 
     def _init_db(self):
         """Initialize database tables if they don't exist."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
 
-            # Check if sessions table exists and migrate if needed
-            cursor.execute("PRAGMA table_info(sessions)")
-            columns = [col[1] for col in cursor.fetchall()]
+                # Check if sessions table exists and migrate if needed
+                cursor.execute("PRAGMA table_info(sessions)")
+                columns = [col[1] for col in cursor.fetchall()]
 
-            # Migration: Add new columns if they don't exist
-            if 'has_documents' not in columns:
-                try:
-                    cursor.execute("ALTER TABLE sessions ADD COLUMN has_documents BOOLEAN DEFAULT 0")
-                except sqlite3.OperationalError:
-                    pass  # Column already exists
+                # Migration: Add new columns if they don't exist
+                if 'has_documents' not in columns:
+                    try:
+                        cursor.execute("ALTER TABLE sessions ADD COLUMN has_documents BOOLEAN DEFAULT 0")
+                    except sqlite3.OperationalError:
+                        pass  # Column already exists
 
-            if 'vector_db_path' not in columns:
-                try:
-                    cursor.execute("ALTER TABLE sessions ADD COLUMN vector_db_path TEXT")
-                except sqlite3.OperationalError:
-                    pass  # Column already exists
+                if 'vector_db_path' not in columns:
+                    try:
+                        cursor.execute("ALTER TABLE sessions ADD COLUMN vector_db_path TEXT")
+                    except sqlite3.OperationalError:
+                        pass  # Column already exists
 
-            # Migration: Add audio_file_path column to messages table
-            cursor.execute("PRAGMA table_info(messages)")
-            message_columns = [col[1] for col in cursor.fetchall()]
+                # Migration: Add audio_file_path column to messages table
+                cursor.execute("PRAGMA table_info(messages)")
+                message_columns = [col[1] for col in cursor.fetchall()]
 
-            if 'audio_file_path' not in message_columns:
-                try:
-                    cursor.execute("ALTER TABLE messages ADD COLUMN audio_file_path TEXT")
-                except sqlite3.OperationalError:
-                    pass  # Column already exists
+                if 'audio_file_path' not in message_columns:
+                    try:
+                        cursor.execute("ALTER TABLE messages ADD COLUMN audio_file_path TEXT")
+                    except sqlite3.OperationalError:
+                        pass  # Column already exists
 
-            # Create sessions table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS sessions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    session_id TEXT UNIQUE NOT NULL,
-                    title TEXT NOT NULL,
-                    has_documents BOOLEAN DEFAULT 0,
-                    vector_db_path TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
+                # Create sessions table
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS sessions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        session_id TEXT UNIQUE NOT NULL,
+                        title TEXT NOT NULL,
+                        has_documents BOOLEAN DEFAULT 0,
+                        vector_db_path TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
 
-            # Create messages table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS messages (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    session_id TEXT NOT NULL,
-                    role TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    audio_file_path TEXT,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (session_id) REFERENCES sessions (session_id)
-                )
-            """)
+                # Create messages table
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS messages (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        session_id TEXT NOT NULL,
+                        role TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        audio_file_path TEXT,
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (session_id) REFERENCES sessions (session_id)
+                    )
+                """)
 
-            # Create documents table for tracking uploaded files
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS documents (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    session_id TEXT NOT NULL,
-                    filename TEXT NOT NULL,
-                    file_path TEXT NOT NULL,
-                    file_size INTEGER,
-                    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (session_id) REFERENCES sessions (session_id)
-                )
-            """)
+                # Create documents table for tracking uploaded files
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS documents (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        session_id TEXT NOT NULL,
+                        filename TEXT NOT NULL,
+                        file_path TEXT NOT NULL,
+                        file_size INTEGER,
+                        uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (session_id) REFERENCES sessions (session_id)
+                    )
+                """)
 
-            # Create index for faster queries
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_session_id
-                ON messages(session_id)
-            """)
+                # Create index for faster queries
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_session_id
+                    ON messages(session_id)
+                """)
 
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_session_updated
-                ON sessions(updated_at DESC)
-            """)
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_session_updated
+                    ON sessions(updated_at DESC)
+                """)
 
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_documents_session
-                ON documents(session_id)
-            """)
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_documents_session
+                    ON documents(session_id)
+                """)
 
-            conn.commit()
+                conn.commit()
+        except Exception as e:
+            print(f"Warning: Database initialization failed: {e}", flush=True)
 
     def create_session(self, session_id: str, title: str) -> Dict:
         """Create a new chat session."""

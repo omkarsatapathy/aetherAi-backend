@@ -17,7 +17,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-PROJECT_ID=""
+PROJECT_ID="effortless-lock-329115"
 REGION="us-central1"
 SERVICE_NAME="agentic-chatbot"
 MEMORY="2Gi"
@@ -137,6 +137,9 @@ gcloud run deploy $SERVICE_NAME \
     --max-instances $MAX_INSTANCES \
     --min-instances $MIN_INSTANCES \
     --timeout 300 \
+    --set-env-vars ENVIRONMENT=production,LOG_LEVEL=WARNING,LOG_TO_FILE=False,LOG_TO_CONSOLE=True,FASTAPI_HOST=0.0.0.0,FASTAPI_PORT=8080 \
+    --cpu-boost \
+    --no-cpu-throttling \
     --project=$PROJECT_ID
 
 # Get the service URL

@@ -33,16 +33,29 @@ COPY backend.py .
 COPY src/ ./src/
 COPY frontend/ ./frontend/
 
-# Create necessary directories
-RUN mkdir -p uploads vector_db logs models
+# Create necessary directories with proper permissions
+RUN mkdir -p uploads vector_db logs models database/gmail_credentials database/audio && \
+    chmod -R 755 uploads vector_db logs models database
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
+# Default environment variables for Cloud Run
+ENV GEMINI_API_KEY=""
+ENV GOOGLE_SEARCH_API_KEY=""
+ENV OPENAI_API_KEY=""
+ENV LOG_LEVEL="WARNING"
+ENV LOG_TO_FILE="False"
+ENV LOG_TO_CONSOLE="True"
 
 # Expose the port Cloud Run expects
 EXPOSE 8080
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')" || exit 1
+
 # Run the application with uvicorn
 # Cloud Run sets PORT environment variable, default to 8080
-CMD exec uvicorn backend:app --host 0.0.0.0 --port ${PORT} --workers 1
+# Use --timeout-keep-alive to handle long-running requests
+CMD exec uvicorn backend:app --host 0.0.0.0 --port ${PORT} --workers 1 --timeout-keep-alive 300

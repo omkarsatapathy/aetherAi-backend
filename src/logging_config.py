@@ -94,9 +94,13 @@ def setup_logging(
     Returns:
         Configured logger instance
     """
-    # Create logs directory if it doesn't exist
+    # Create logs directory if it doesn't exist (skip in Cloud Run if not needed)
     logs_dir = Path(__file__).parent.parent / "logs"
-    logs_dir.mkdir(exist_ok=True)
+    try:
+        logs_dir.mkdir(exist_ok=True)
+    except (PermissionError, OSError):
+        # In Cloud Run, file logging might not be available
+        log_to_file = False
 
     # Create logger
     logger = logging.getLogger("chatbot")

@@ -59,11 +59,28 @@ def create_app() -> FastAPI:
         """Serve the main HTML page."""
         return FileResponse("frontend/index.html")
 
-    # Health check endpoint
+    # Health check endpoint for Cloud Run
     @app.get("/api/health")
     async def health_check():
-        """Check API health status."""
-        return {"status": "healthy", "llm_url": Config.LLAMA_CPP_URL}
+        """Check API health status (used by Cloud Run health checks)."""
+        return {
+            "status": "healthy",
+            "service": "agentic-chatbot",
+            "version": "1.0.0"
+        }
+
+    # Simple root health check for Cloud Run startup probe
+    @app.get("/health")
+    async def root_health():
+        """Simple health check for Cloud Run."""
+        return {"status": "ok"}
+
+    # Startup event
+    @app.on_event("startup")
+    async def startup_event():
+        """Log when the application starts."""
+        logger.info("FastAPI application started and ready to accept requests")
+        print("Application started successfully on port 8080", flush=True)
 
     logger.info("FastAPI application initialized successfully")
     return app
