@@ -71,3 +71,4 @@ skaffold.out
 .skaffold/*.log
 Dockerfile.local
 firebase-service-account.json
+firebase-service-account.json
