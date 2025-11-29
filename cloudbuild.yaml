@@ -14,7 +14,12 @@ substitutions:
   _TAG: 'latest'
 
 steps:
-  # Build the container image with caching
+  # Step 1: Verify base image is accessible and working
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['pull', 'gcr.io/$PROJECT_ID/agentic-chatbot-base:latest']
+    timeout: 300s
+
+  # Step 2: Build the container image with caching
   # Using Kaniko for better layer caching in Cloud Build
   # This now uses the pre-built base image, so it only rebuilds code layers (FAST!)
   - name: 'gcr.io/kaniko-project/executor:latest'
@@ -31,7 +36,29 @@ steps:
       - --compressed-caching=true
     timeout: 1200s
 
-  # Deploy container image to Cloud Run
+  # Step 3: Verify the built image works (test for llama_index import errors)
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        set -e
+        echo "Testing the built image for import errors..."
+
+        # Pull the just-built image
+        docker pull gcr.io/$PROJECT_ID/agentic-chatbot:latest
+
+        # Run a quick test to check for llama_index import errors
+        timeout 30 docker run --rm gcr.io/$PROJECT_ID/agentic-chatbot:latest \
+          python -c "from llama_index.llms.google_genai import GoogleGenAI; print('SUCCESS: llama_index imports work correctly')" || {
+          echo "ERROR: Import test failed!"
+          exit 1
+        }
+
+        echo "Image verification passed!"
+    timeout: 120s
+
+  # Step 4: Deploy container image to Cloud Run (only if tests pass)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:

@@ -1,124 +1,53 @@
-apiVersion: skaffold/v4beta11
+apiVersion: skaffold/v2beta29
 kind: Config
 metadata:
   name: agentic-chatbot
 
-# Build configuration
+# Build configuration - LOCAL BUILDS (no Cloud Build charges!)
 build:
   artifacts:
     - image: gcr.io/effortless-lock-329115/agentic-chatbot
       docker:
         dockerfile: Dockerfile
         cacheFrom:
+          - gcr.io/effortless-lock-329115/agentic-chatbot-base:latest
           - gcr.io/effortless-lock-329115/agentic-chatbot:latest
         buildArgs:
           BUILDKIT_INLINE_CACHE: "1"
-      # Sync files for faster development (optional)
-      sync:
-        manual:
-          - src: "src/**/*.py"
-            dest: /app/src
-          - src: "backend.py"
-            dest: /app
-
-  # Use Google Cloud Build for remote builds
-  googleCloudBuild:
-    projectId: effortless-lock-329115
-    machineType: E2_HIGHCPU_8
-    diskSizeGb: 100
-    timeout: 1200s
-    # Enable Kaniko for better caching
-    kaniko:
-      cache:
-        repo: gcr.io/effortless-lock-329115/agentic-chatbot-cache
-        ttl: 168h  # 7 days
-      # Build arguments
-      buildArgs:
-        - BUILDKIT_INLINE_CACHE=1
+  # Use LOCAL Docker builds (much faster, no Cloud Build cost!)
+  local:
+    push: true  # Push to GCR after building locally
+    useBuildkit: true  # Use Docker BuildKit for faster builds
+    concurrency: 0  # Build all in parallel
 
 # Deploy configuration for Cloud Run
 deploy:
   cloudrun:
     projectid: effortless-lock-329115
     region: us-central1
-    hooks:
-      before:
-        - host:
-            command: ["sh", "-c", "echo 'Starting deployment to Cloud Run...'"]
-      after:
-        - host:
-            command: ["sh", "-c", "echo 'Deployment completed! Fetching service URL...'"]
-        - host:
-            command: ["gcloud", "run", "services", "describe", "agentic-chatbot", "--region=us-central1", "--format=value(status.url)"]
 
 # Profiles for different environments
 profiles:
   # Development profile - fast iteration with local builds
   - name: dev
     build:
-      artifacts:
-        - image: gcr.io/effortless-lock-329115/agentic-chatbot
-          docker:
-            dockerfile: Dockerfile
-            noCache: false
-          sync:
-            manual:
-              - src: "src/**/*.py"
-                dest: /app/src
-              - src: "backend.py"
-                dest: /app
       local:
         push: true
-        concurrency: 0
+        useBuildkit: true
     deploy:
       cloudrun:
         projectid: effortless-lock-329115
         region: us-central1
 
-  # Production profile - optimized builds with all caching
+  # Production profile - use Cloud Build for production
   - name: prod
     build:
-      artifacts:
-        - image: gcr.io/effortless-lock-329115/agentic-chatbot
-          docker:
-            dockerfile: Dockerfile
-            cacheFrom:
-              - gcr.io/effortless-lock-329115/agentic-chatbot:latest
-              - gcr.io/effortless-lock-329115/agentic-chatbot-cache
       googleCloudBuild:
         projectId: effortless-lock-329115
         machineType: E2_HIGHCPU_8
         diskSizeGb: 100
         timeout: 1200s
-        kaniko:
-          cache:
-            repo: gcr.io/effortless-lock-329115/agentic-chatbot-cache
-            ttl: 168h
     deploy:
       cloudrun:
         projectid: effortless-lock-329115
         region: us-central1
-
-  # Staging profile
-  - name: staging
-    build:
-      artifacts:
-        - image: gcr.io/effortless-lock-329115/agentic-chatbot
-          docker:
-            dockerfile: Dockerfile
-      googleCloudBuild:
-        projectId: effortless-lock-329115
-        machineType: E2_HIGHCPU_8
-        diskSizeGb: 100
-    deploy:
-      cloudrun:
-        projectid: effortless-lock-329115
-        region: us-central1
-
-# Port forwarding for local testing (optional)
-portForward:
-  - resourceType: service
-    resourceName: agentic-chatbot
-    namespace: default
-    port: 8080
-    localPort: 8080

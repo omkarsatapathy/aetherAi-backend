@@ -1,0 +1,26 @@
+# Cloud Build configuration for application image
+# This builds the app using the verified base image
+# Run with: gcloud builds submit --config cloudbuild.app.yaml
+
+options:
+  machineType: 'E2_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  # Build the application image using Kaniko with the EXACT base image digest
+  - name: 'gcr.io/kaniko-project/executor:latest'
+    args:
+      - --dockerfile=Dockerfile
+      - --destination=gcr.io/$PROJECT_ID/agentic-chatbot:latest
+      - --destination=gcr.io/$PROJECT_ID/agentic-chatbot:$BUILD_ID
+      - --cache=true
+      - --cache-ttl=24h
+      # Explicitly specify the base image digest to ensure we use the correct one
+      - --build-arg=BASE_IMAGE=gcr.io/$PROJECT_ID/agentic-chatbot-base@sha256:fa4ccd6901a127772a7eb602691a0a7c688a7cec95d789c63c06b23bdcaa5ff9
+    timeout: 600s
+
+images:
+  - 'gcr.io/$PROJECT_ID/agentic-chatbot:latest'
+  - 'gcr.io/$PROJECT_ID/agentic-chatbot:$BUILD_ID'
+
+timeout: 1200s

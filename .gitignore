@@ -69,3 +69,4 @@ uploads/
 .skaffold/cache/
 skaffold.out
 .skaffold/*.log
+Dockerfile.local
