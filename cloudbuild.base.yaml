@@ -1,0 +1,27 @@
+# Cloud Build configuration for base image
+# Run this when requirements.txt changes: gcloud builds submit --config cloudbuild.base.yaml
+# This creates a base image with all dependencies pre-installed
+
+options:
+  machineType: 'E2_HIGHCPU_8'
+  diskSizeGb: 100
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  # Build the base image with dependencies
+  - name: 'gcr.io/kaniko-project/executor:latest'
+    args:
+      - --dockerfile=Dockerfile.base
+      - --destination=gcr.io/$PROJECT_ID/agentic-chatbot-base:latest
+      - --cache=true
+      - --cache-ttl=720h  # Cache for 30 days (dependencies change rarely)
+      - --cache-repo=gcr.io/$PROJECT_ID/agentic-chatbot-base-cache
+      - --snapshot-mode=time
+      - --use-new-run=true
+      - --compressed-caching=true
+    timeout: 1200s
+
+images:
+  - 'gcr.io/$PROJECT_ID/agentic-chatbot-base:latest'
+
+timeout: 2400s

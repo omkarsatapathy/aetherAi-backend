@@ -1,0 +1,43 @@
+# Base image with all dependencies pre-installed
+# This image only needs to be rebuilt when requirements.txt changes
+# Similar to AWS Lambda layers - dependencies are separated from code
+
+# Use Python 3.11 slim image for smaller size
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies (cached layer)
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install UV - the fast Python package installer (10-100x faster than pip)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Add UV to PATH
+ENV PATH="/root/.local/bin:$PATH"
+
+# Copy requirements and install dependencies
+COPY requirements.txt .
+
+# Install Python dependencies using UV
+# This layer will be cached in the base image
+RUN /root/.local/bin/uv pip install --system -r requirements.txt
+
+# Create necessary directories with proper permissions
+RUN mkdir -p uploads vector_db logs models database/gmail_credentials database/audio && \
+    chmod -R 755 uploads vector_db logs models database
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8080
+ENV LOG_LEVEL="WARNING"
+ENV LOG_TO_FILE="False"
+ENV LOG_TO_CONSOLE="True"
+
+# Expose the port Cloud Run expects
+EXPOSE 8080

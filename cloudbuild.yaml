@@ -10,19 +10,25 @@ options:
   diskSizeGb: 100
   logging: CLOUD_LOGGING_ONLY
 
+substitutions:
+  _TAG: 'latest'
+
 steps:
   # Build the container image with caching
   # Using Kaniko for better layer caching in Cloud Build
+  # This now uses the pre-built base image, so it only rebuilds code layers (FAST!)
   - name: 'gcr.io/kaniko-project/executor:latest'
     args:
-      - --destination=gcr.io/$PROJECT_ID/agentic-chatbot:$SHORT_SHA
+      - --destination=gcr.io/$PROJECT_ID/agentic-chatbot:${_TAG}
       - --destination=gcr.io/$PROJECT_ID/agentic-chatbot:latest
       - --cache=true
       - --cache-ttl=168h  # Cache for 7 days
       - --cache-repo=gcr.io/$PROJECT_ID/agentic-chatbot-cache
-      - --compressed-caching=false
-      - --snapshot-mode=redo
-      - --build-arg=BUILDKIT_INLINE_CACHE=1
+      - --dockerfile=Dockerfile
+      # Use snapshot-mode=time for faster, incremental builds (like AWS SAM)
+      - --snapshot-mode=time
+      - --use-new-run=true
+      - --compressed-caching=true
     timeout: 1200s
 
   # Deploy container image to Cloud Run
@@ -33,7 +39,7 @@ steps:
       - 'deploy'
       - 'agentic-chatbot'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/agentic-chatbot:$SHORT_SHA'
+      - 'gcr.io/$PROJECT_ID/agentic-chatbot:${_TAG}'
       - '--region'
       - 'us-central1'
       - '--platform'
@@ -61,7 +67,7 @@ steps:
 
 # Tag both commit SHA and latest
 images:
-  - 'gcr.io/$PROJECT_ID/agentic-chatbot:$SHORT_SHA'
+  - 'gcr.io/$PROJECT_ID/agentic-chatbot:${_TAG}'
   - 'gcr.io/$PROJECT_ID/agentic-chatbot:latest'
 
 # Build timeout

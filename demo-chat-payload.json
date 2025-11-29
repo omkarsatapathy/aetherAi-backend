@@ -1,0 +1,33 @@
+{
+  "message": "letc chnage the topic, i need latest news about hyderabad",
+  "session_id": "demo-session-456",
+  "model_provider": "gemini-2.0-flash",
+  "response_style": "Explanatory",  
+  "web_search": false,
+  "conversation_history": [
+    {
+      "role": "user",
+      "content": "Hi! I'm new to programming and want to start learning."
+    },
+    {
+      "role": "assistant",
+      "content": "Hello! 😊 That's great! Starting with programming is an exciting journey. I'd recommend beginning with Python - it's beginner-friendly, has clean syntax, and is widely used in web development, data science, and automation. What are you interested in building?"
+    },
+    {
+      "role": "user",
+      "content": "I want to build web applications and maybe work with AI in the future."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfect! Python is excellent for both. For web apps, you can use frameworks like Django or Flask. For AI/ML, Python dominates with libraries like TensorFlow, PyTorch, and scikit-learn. Start with Python basics, then learn a web framework, and gradually move into AI concepts."
+    },
+    {
+      "role": "user",
+      "content": "How long will it take to become job-ready?"
+    },
+    {
+      "role": "assistant",
+      "content": "With consistent practice (2-3 hours daily), you can become job-ready in 6-12 months. Focus on: learning Python fundamentals (2-3 months), building projects (3-4 months), learning a web framework (2-3 months), and creating a portfolio. The key is building real projects to showcase your skills!"
+    }
+  ]
+}

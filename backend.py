@@ -56,6 +56,6 @@ if __name__ == "__main__":
         host=host,
         port=port,
         reload=True,
-        reload_dirs=[".", "src", "frontend"],
+        reload_dirs=[".", "src"],
         log_level="warning"  # Reduce log verbosity (only warnings and errors)
     )

@@ -8,7 +8,7 @@ import json
 class DatabaseManager:
     """Manages SQLite database for chat sessions and messages."""
 
-    def __init__(self, db_path: str = "frontend/database/chat_history.db"):
+    def __init__(self, db_path: str = "/tmp/chat_history.db"):
         """Initialize database manager."""
         self.db_path = db_path
         # Ensure directory exists (handle Cloud Run's ephemeral filesystem)

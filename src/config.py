@@ -39,7 +39,7 @@ class Config:
     GMAIL_DEFAULT_MAX_RESULTS: int = int(os.getenv("GMAIL_DEFAULT_MAX_RESULTS", "15"))
     GMAIL_MAX_RESULTS_LIMIT: int = int(os.getenv("GMAIL_MAX_RESULTS_LIMIT", "50"))
     GMAIL_BODY_MAX_LENGTH: int = int(os.getenv("GMAIL_BODY_MAX_LENGTH", "5000"))
-    GMAIL_CREDENTIALS_DIR: str = os.getenv("GMAIL_CREDENTIALS_DIR", "frontend/database/gmail_credentials")
+    GMAIL_CREDENTIALS_DIR: str = os.getenv("GMAIL_CREDENTIALS_DIR", "/tmp/gmail_credentials")
 
     # FastAPI Server
     FASTAPI_HOST: str = os.getenv("FASTAPI_HOST", "0.0.0.0")

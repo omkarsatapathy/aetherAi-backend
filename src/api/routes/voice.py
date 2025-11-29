@@ -14,7 +14,7 @@ logger = get_logger("chatbot.routes.voice")
 router = APIRouter(prefix="/api", tags=["voice"])
 
 # Audio files storage directory
-AUDIO_STORAGE_DIR = Path("frontend/database/audio")
+AUDIO_STORAGE_DIR = Path("/tmp/audio")
 AUDIO_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 

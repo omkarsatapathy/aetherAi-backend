@@ -18,9 +18,10 @@ def create_app() -> FastAPI:
     Returns:
         Configured FastAPI application instance
     """
+    
     # Initialize FastAPI app
     app = FastAPI(title="Chatbot API")
-
+    
     # Add CORS middleware
     app.add_middleware(
         CORSMiddleware,
@@ -29,18 +30,15 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"]
     )
-
-    # Mount static files
-    app.mount("/static", StaticFiles(directory="frontend"), name="static")
-
+    
     # Initialize database manager
     db_manager = DatabaseManager()
-
+    
     # Inject database manager into route modules
     sessions.set_db_manager(db_manager)
     messages.set_db_manager(db_manager)
     documents.set_db_manager(db_manager)
-
+    
     # Include routers
     app.include_router(chat.router)
     app.include_router(sessions.router)
@@ -52,13 +50,13 @@ def create_app() -> FastAPI:
     app.include_router(setup.router)
     app.include_router(image.router)
     app.include_router(config.router)
-
+    
     # Root endpoint
     @app.get("/")
     async def read_root():
-        """Serve the main HTML page."""
-        return FileResponse("frontend/index.html")
-
+        """Welcome endpoint."""
+        return {"message": "Welcome to the AetherAI Backend"}
+    
     # Health check endpoint for Cloud Run
     @app.get("/api/health")
     async def health_check():
@@ -68,6 +66,7 @@ def create_app() -> FastAPI:
             "service": "agentic-chatbot",
             "version": "1.0.0"
         }
+    
 
     # Simple root health check for Cloud Run startup probe
     @app.get("/health")

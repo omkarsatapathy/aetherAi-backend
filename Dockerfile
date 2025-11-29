@@ -1,55 +1,23 @@
-# Use Python 3.11 slim image for smaller size
-FROM python:3.11-slim AS base
+# Application Dockerfile using pre-built base image
+# This only copies code, making deployments VERY fast (1-2 minutes)
+# Similar to AWS SAM's approach - dependencies in layers, code updated separately
 
-# Set working directory
+# Use the pre-built base image with all dependencies
+# When requirements.txt changes, rebuild base image with: gcloud builds submit --config cloudbuild.base.yaml
+FROM gcr.io/effortless-lock-329115/agentic-chatbot-base:latest
+
+# Set working directory (already set in base, but explicit is good)
 WORKDIR /app
 
-# Install system dependencies (cached layer)
-RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
-
-# ============================================
-# Dependencies layer (only rebuilt when requirements change)
-# ============================================
-FROM base AS dependencies
-
-# Copy requirements first for better caching
-COPY requirements.txt .
-
-# Install Python dependencies
-# This layer is cached and only rebuilt when requirements.txt changes
-RUN pip install --no-cache-dir -r requirements.txt
-
-# ============================================
-# Final application layer (rebuilt on every code change)
-# ============================================
-FROM dependencies AS application
-
 # Copy application code
-# These layers are rebuilt when code changes
+# Only these layers are rebuilt on code changes (FAST!)
 COPY backend.py .
 COPY src/ ./src/
-COPY frontend/ ./frontend/
 
-# Create necessary directories with proper permissions
-RUN mkdir -p uploads vector_db logs models database/gmail_credentials database/audio && \
-    chmod -R 755 uploads vector_db logs models database
-
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV PORT=8080
-# Default environment variables for Cloud Run
+# Set environment variables for Cloud Run (override base if needed)
 ENV GEMINI_API_KEY=""
 ENV GOOGLE_SEARCH_API_KEY=""
 ENV OPENAI_API_KEY=""
-ENV LOG_LEVEL="WARNING"
-ENV LOG_TO_FILE="False"
-ENV LOG_TO_CONSOLE="True"
-
-# Expose the port Cloud Run expects
-EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
@@ -57,5 +25,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 # Run the application with uvicorn
 # Cloud Run sets PORT environment variable, default to 8080
-# Use --timeout-keep-alive to handle long-running requests
 CMD exec uvicorn backend:app --host 0.0.0.0 --port ${PORT} --workers 1 --timeout-keep-alive 300
