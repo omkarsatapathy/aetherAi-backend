@@ -28,3 +28,9 @@ firebase-admin>=6.5.0
 
 # Cryptography for token encryption
 cryptography>=41.0.0
+
+# Google ADK (Agent Development Kit) for multi-agent systems
+google-adk>=1.0.0
+
+# LiteLLM for multi-provider model support (OpenAI, Anthropic, Ollama, etc.)
+litellm>=1.50.0

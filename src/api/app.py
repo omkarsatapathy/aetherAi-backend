@@ -80,7 +80,8 @@ def create_app() -> FastAPI:
     async def startup_event():
         """Log when the application starts."""
         logger.info("FastAPI application started and ready to accept requests")
-        print("Application started successfully on port 8080", flush=True)
+        from src.config import Config
+        print(f"Application started successfully on port {Config.FASTAPI_PORT}", flush=True)
 
     logger.info("FastAPI application initialized successfully")
     return app
