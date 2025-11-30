@@ -43,6 +43,7 @@ async def create_streaming_response(
     message: str,
     conversation_history: List[Dict[str, str]],
     session_id: str = None,
+    user_id: str = None,
     model_provider: Optional[str] = None,
     response_style: Optional[str] = None
 ) -> AsyncGenerator[str, None]:
@@ -58,7 +59,9 @@ async def create_streaming_response(
         message: User's message
         conversation_history: List of previous conversation messages
         session_id: Optional session ID for document queries
+        user_id: Firebase Auth user ID for user-specific tools (Gmail, etc.)
         model_provider: Model provider to use ('llamacpp', 'gemini', 'openai')
+        response_style: Response style preference
 
     Yields:
         SSE-formatted strings with event updates
@@ -126,11 +129,11 @@ async def create_streaming_response(
 
         # Add session-specific tools if session_id is provided
         if session_id:
-            session_tools = get_session_tools(session_id)
+            session_tools = get_session_tools(session_id, user_id)
             primary_tools.extend(session_tools)
 
         # Create News Reader Agent (specialized for email and news analysis)
-        news_tools = get_gmail_tools()
+        news_tools = get_gmail_tools(user_id)
         news_reader_agent = Agent(
             name="News Reader Agent",
             model=model,

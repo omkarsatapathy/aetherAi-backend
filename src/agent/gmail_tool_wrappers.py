@@ -2,15 +2,16 @@
 from typing import Optional, List
 from strands import tool
 from ..config import Config
-from ..tools.gmail import fetch_gmail_messages, gmail_auth_status
+from ..gmail.tool import fetch_gmail_messages, gmail_auth_status
 from ..tools.document_rag import query_documents
 
 
-def get_session_tools(session_id: str) -> List:
+def get_session_tools(session_id: str, user_id: str = None) -> List:
     """Get tools with session context (Gmail + Documents).
 
     Args:
         session_id: Session ID for document queries
+        user_id: Firebase Auth user ID for user-specific tools
 
     Returns:
         List of configured tools
@@ -29,9 +30,9 @@ def get_session_tools(session_id: str) -> List:
             Dictionary containing list of messages with id, subject, from, date, snippet, and full body, sorted newest first
         """
         return fetch_gmail_messages(
+            user_id=user_id,
             max_results=Config.GMAIL_DEFAULT_MAX_RESULTS,
-            query=query,
-            user_id=Config.GMAIL_USER_ID
+            query=query
         )
 
     def gmail_auth_wrapper() -> dict:
@@ -40,7 +41,7 @@ def get_session_tools(session_id: str) -> List:
         Returns:
             Dictionary with authentication status
         """
-        return gmail_auth_status(user_id=Config.GMAIL_USER_ID)
+        return gmail_auth_status(user_id=user_id)
 
     def query_documents_wrapper(query: str) -> dict:
         """Query uploaded documents for information using RAG.
@@ -62,8 +63,11 @@ def get_session_tools(session_id: str) -> List:
     ]
 
 
-def get_gmail_tools() -> List:
+def get_gmail_tools(user_id: str = None) -> List:
     """Get Gmail tools without session context.
+
+    Args:
+        user_id: Firebase Auth user ID for user-specific tools
 
     Returns:
         List of Gmail tools
@@ -82,14 +86,14 @@ def get_gmail_tools() -> List:
             Dictionary containing list of messages with id, subject, from, date, snippet, and full body, sorted newest first
         """
         return fetch_gmail_messages(
+            user_id=user_id,
             max_results=Config.GMAIL_DEFAULT_MAX_RESULTS,
-            query=query,
-            user_id=Config.GMAIL_USER_ID
+            query=query
         )
 
     def gmail_auth_wrapper() -> dict:
         """Check Gmail authentication status."""
-        return gmail_auth_status(user_id=Config.GMAIL_USER_ID)
+        return gmail_auth_status(user_id=user_id)
 
     return [
         tool(fetch_gmail_wrapper),

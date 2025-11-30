@@ -6,7 +6,8 @@ from fastapi.responses import FileResponse
 from src.database import DatabaseManager
 from src.config import Config
 from src.logging_config import setup_logging
-from .routes import chat, sessions, messages, documents, models, gmail_auth, voice, setup, image, config
+from .routes import chat, sessions, messages, documents, models, voice, setup, image, config
+from ..gmail import routes as gmail_routes
 
 # Setup logging
 logger = setup_logging(Config.LOG_LEVEL, Config.LOG_TO_FILE, Config.LOG_TO_CONSOLE)
@@ -45,7 +46,7 @@ def create_app() -> FastAPI:
     app.include_router(messages.router)
     app.include_router(documents.router)
     app.include_router(models.router)
-    app.include_router(gmail_auth.router)
+    app.include_router(gmail_routes.router)  # Updated to use new secure Gmail routes
     app.include_router(voice.router)
     app.include_router(setup.router)
     app.include_router(image.router)

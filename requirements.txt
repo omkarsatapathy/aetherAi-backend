@@ -25,3 +25,6 @@ google-genai>=1.51.0
 
 # Firebase Admin SDK for authentication and Firestore
 firebase-admin>=6.5.0
+
+# Cryptography for token encryption
+cryptography>=41.0.0
