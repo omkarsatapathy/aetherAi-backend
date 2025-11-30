@@ -84,6 +84,7 @@ class ADKAgentRunner:
                 # Create coordinator with callback handler and context
                 self.coordinator_agent, self.callback_handler, self.streaming_context = \
                     create_coordinator_with_context()
+                print(f"✓ Callback handler and streaming context initialized")
             else:
                 # Create coordinator without callbacks
                 self.coordinator_agent = create_coordinator_agent()

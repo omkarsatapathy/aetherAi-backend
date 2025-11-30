@@ -20,6 +20,8 @@ from typing import Optional, Dict, Any, Callable, AsyncGenerator
 from dataclasses import dataclass, field
 from google.genai import types
 from google.adk.agents import LlmAgent
+from google.adk.tools.base_tool import BaseTool
+from google.adk.tools.tool_context import ToolContext
 from ...logging_config import get_logger
 
 logger = get_logger("chatbot.adk_callbacks")
@@ -84,21 +86,22 @@ class ToolLimitCallback:
     
     def before_tool_callback(
         self,
-        callback_context: Any,  # CallbackContext from ADK
-        tool_name: str,
-        args: Dict[str, Any]
+        tool: BaseTool,
+        args: Dict[str, Any],
+        tool_context: ToolContext
     ) -> Optional[Dict]:
         """
         Called before each tool execution.
         
         Args:
-            callback_context: ADK CallbackContext with session state
-            tool_name: Name of the tool being called
+            tool: The BaseTool instance being called
             args: Arguments passed to the tool
+            tool_context: ToolContext with session state and tool info
             
         Returns:
             None to proceed, or a dict to skip tool execution and return this result
         """
+        tool_name = tool.name if hasattr(tool, 'name') else str(tool)
         self.context.tool_count += 1
         
         logger.info(f"🔧 Tool call #{self.context.tool_count}/{self.max_calls}: {tool_name}")
@@ -124,21 +127,24 @@ class ToolLimitCallback:
     
     def after_tool_callback(
         self,
-        callback_context: Any,
-        tool_name: str,
+        tool: BaseTool,
+        args: Dict[str, Any],
+        tool_context: ToolContext,
         tool_response: Dict
     ) -> Optional[Dict]:
         """
         Called after each tool execution.
         
         Args:
-            callback_context: ADK CallbackContext with session state
-            tool_name: Name of the tool that was called
+            tool: The BaseTool instance that was called
+            args: Arguments passed to the tool
+            tool_context: ToolContext with session state and tool info
             tool_response: Result returned by the tool
             
         Returns:
             None to use original response, or dict to replace the response
         """
+        tool_name = tool.name if hasattr(tool, 'name') else str(tool)
         logger.info(f"✅ Tool completed: {tool_name}")
         
         # Check for maps widget data in response
@@ -331,9 +337,9 @@ class ADKCallbackHandler:
     
     def before_tool_callback(
         self,
-        callback_context: Any,
-        tool_name: str,
-        args: Dict[str, Any]
+        tool: BaseTool,
+        args: Dict[str, Any],
+        tool_context: ToolContext
     ) -> Optional[Dict]:
         """
         Called before a tool is executed.
@@ -346,15 +352,17 @@ class ADKCallbackHandler:
         - Skip tool execution by returning a result dict
         
         Args:
-            callback_context: ADK CallbackContext
-            tool_name: Name of the tool being called
+            tool: The BaseTool instance being called
             args: Arguments to be passed to the tool
+            tool_context: ToolContext with session state and tool info
             
         Returns:
             None to proceed with tool execution, or dict to skip and use this as result
         """
+        tool_name = tool.name if hasattr(tool, 'name') else str(tool)
+        
         # Use tool limit callback
-        result = self.tool_limit.before_tool_callback(callback_context, tool_name, args)
+        result = self.tool_limit.before_tool_callback(tool, args, tool_context)
         
         if result is None:
             # Get display name for the tool
@@ -373,8 +381,9 @@ class ADKCallbackHandler:
     
     def after_tool_callback(
         self,
-        callback_context: Any,
-        tool_name: str,
+        tool: BaseTool,
+        args: Dict[str, Any],
+        tool_context: ToolContext,
         tool_response: Dict
     ) -> Optional[Dict]:
         """
@@ -387,14 +396,15 @@ class ADKCallbackHandler:
         - Replace the tool result
         
         Args:
-            callback_context: ADK CallbackContext
-            tool_name: Name of the tool that was called
+            tool: The BaseTool instance that was called
+            args: Arguments passed to the tool
+            tool_context: ToolContext with session state and tool info
             tool_response: Result returned by the tool
             
         Returns:
             None to use original response, or dict to replace it
         """
-        return self.tool_limit.after_tool_callback(callback_context, tool_name, tool_response)
+        return self.tool_limit.after_tool_callback(tool, args, tool_context, tool_response)
     
     def get_callbacks_dict(self) -> Dict[str, Callable]:
         """
