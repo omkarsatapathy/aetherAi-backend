@@ -48,7 +48,7 @@ def analyze_image_with_gemini(image_data: bytes, prompt: str = "Describe what yo
         raise
 
 
-@tool
+# @tool
 def analyze_image(image_base64: str, question: Optional[str] = None) -> str:
     """
     Analyze an image and describe its contents or answer questions about it.

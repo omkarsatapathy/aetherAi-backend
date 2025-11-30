@@ -134,7 +134,7 @@ def format_maps_response(result: Dict[str, Any]) -> str:
     return response_text
 
 
-@tool
+# @tool
 def search_nearby_places(
     query: str,
     latitude: Optional[float] = None,
@@ -168,7 +168,7 @@ def search_nearby_places(
         return f"Failed to search nearby places: {str(e)}"
 
 
-@tool
+# @tool
 def get_directions(
     origin: str,
     destination: str,
@@ -205,7 +205,7 @@ def get_directions(
         return f"Failed to get directions: {str(e)}"
 
 
-@tool
+# @tool
 def get_traffic_info(
     location: Optional[str] = None,
     latitude: Optional[float] = None,
@@ -244,7 +244,7 @@ def get_traffic_info(
         return f"Failed to get traffic info: {str(e)}"
 
 
-@tool
+# @tool
 def get_place_details(
     place_name: str,
     latitude: Optional[float] = None,
@@ -280,7 +280,7 @@ def get_place_details(
         return f"Failed to get place details: {str(e)}"
 
 
-@tool
+# @tool
 def explore_area(
     area: Optional[str] = None,
     interests: Optional[str] = None,

@@ -123,7 +123,7 @@ def _get_email_body(payload: Dict) -> str:
     return ""
 
 
-@tool
+# @tool
 def fetch_gmail_messages(
     max_results: int = None,
     query: str = "",
@@ -229,7 +229,7 @@ def fetch_gmail_messages(
         return json.dumps({"error": "Unexpected error", "message": f"Failed to fetch messages: {str(e)}"})
 
 
-@tool
+# @tool
 def gmail_auth_status(user_id: str = None) -> str:
     """
     Strands tool: Check Gmail authentication status.

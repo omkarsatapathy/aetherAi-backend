@@ -365,7 +365,7 @@ def _fetch_url_content_impl(url: str, max_content_length: int = 8000, include_li
     return result
 
 
-@tool
+# @tool
 def fetch_url_content(url: str, max_content_length: int = 8000, include_links: bool = False) -> str:
     """
     Strands tool: Fetch and parse content from a URL with metadata extraction.
@@ -387,8 +387,8 @@ def fetch_url_content(url: str, max_content_length: int = 8000, include_links: b
     return json.dumps(result, ensure_ascii=False)
 
 
-@tool
-def fetch_multiple_urls(urls: list, max_content_length: int = 5000) -> str:
+# @tool
+def fetch_multiple_urls(urls: list[str], max_content_length: int = 5000) -> str:
     """
     Strands tool: Fetch content from multiple URLs in sequence.
 

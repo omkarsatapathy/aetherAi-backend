@@ -520,7 +520,7 @@ def get_rag_manager(session_id: str) -> DocumentRAGManager:
     return _rag_managers[session_id]
 
 
-@tool
+# @tool
 def query_documents(query: str, session_id: str) -> str:
     """
     Strands tool: Query uploaded documents for information using RAG with Gemini 2.5 Flash.

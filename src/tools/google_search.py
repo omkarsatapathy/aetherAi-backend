@@ -8,7 +8,7 @@ from strands import tool
 
 logger = get_logger("chatbot.tools")
 
-@tool
+# @tool
 def google_search_with_context(query: str) -> str:
     """
     Strands tool: Perform a Google Custom Search and return the top result with full page context.
