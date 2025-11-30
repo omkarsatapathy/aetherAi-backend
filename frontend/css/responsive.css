@@ -1,0 +1,222 @@
+/* Tablet optimizations (iPad) */
+@media only screen and (max-width: 1024px) {
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        transform: translateX(-100%);
+        box-shadow: var(--shadow-lg);
+        z-index: 1000;
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    .sidebar-toggle {
+        display: flex;
+    }
+
+    .chat-container {
+        width: 100%;
+    }
+
+    .header-left {
+        padding-left: 48px;
+    }
+}
+
+/* Sidebar overlay for tablet/mobile */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+}
+
+.sidebar-overlay.show {
+    display: block;
+}
+
+/* Mobile optimizations - ChatGPT inspired */
+@media only screen and (max-width: 768px) {
+    .chat-header {
+        padding: 10px 12px;
+    }
+
+    .header-left {
+        padding-left: 44px;
+    }
+
+    .header-content {
+        gap: 8px;
+    }
+
+    .model-provider-select {
+        font-size: 13px;
+        min-width: 80px;
+        max-width: 140px;
+        padding: 6px 24px 6px 8px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .header-center {
+        display: none; /* Hide center logo on mobile */
+    }
+
+    .status-indicator {
+        display: none;
+    }
+
+    .header-logo {
+        width: 28px;
+        height: 28px;
+    }
+
+    .header-right {
+        gap: 4px;
+    }
+
+    .header-right .icon-button,
+    .header-right .theme-toggle {
+        padding: 6px;
+        min-width: 32px;
+        min-height: 32px;
+    }
+
+    .chat-messages {
+        padding: 12px 0;
+    }
+
+    .message-content {
+        max-width: 100%;
+        padding: 0 12px;
+        font-size: 14px;
+    }
+
+    .chat-input-container {
+        padding: 8px 12px 12px;
+    }
+
+    .input-wrapper {
+        padding: 6px 8px;
+        gap: 2px;
+    }
+
+    .send-button,
+    .attach-button,
+    .search-button,
+    .image-upload-button,
+    .camera-button,
+    .style-toggle-button {
+        min-width: 32px;
+        min-height: 32px;
+        padding: 6px;
+    }
+
+    #messageInput {
+        font-size: 16px; /* Prevents zoom on iOS */
+        padding: 6px 8px;
+    }
+
+    /* Optimize tables for mobile */
+    .markdown-table {
+        font-size: 12px;
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .markdown-table th,
+    .markdown-table td {
+        padding: 8px 10px;
+        white-space: nowrap;
+    }
+
+    .document-area {
+        padding: 12px;
+    }
+}
+
+/* Very small screens (iPhone SE, small phones) */
+@media only screen and (max-width: 480px) {
+    .header-left {
+        padding-left: 40px;
+    }
+
+    .model-provider-select {
+        font-size: 12px;
+        max-width: 120px;
+        padding: 4px 20px 4px 6px;
+    }
+
+    .chat-welcome-logo {
+        width: 60px;
+        height: 60px;
+    }
+
+    .chat-welcome-title {
+        font-size: 18px;
+    }
+
+    .message-content {
+        font-size: 14px;
+        padding: 0 10px;
+    }
+
+    .input-wrapper {
+        padding: 4px 6px;
+    }
+
+    /* Hide some buttons on very small screens to save space */
+    .style-toggle-button {
+        display: none;
+    }
+
+    .send-button,
+    .attach-button,
+    .search-button,
+    .image-upload-button,
+    .camera-button {
+        min-width: 28px;
+        min-height: 28px;
+        padding: 4px;
+    }
+
+    #messageInput {
+        font-size: 16px; /* Keep 16px to prevent iOS zoom */
+        padding: 4px 6px;
+    }
+}
+
+/* Landscape mode on mobile */
+@media only screen and (max-height: 500px) and (orientation: landscape) {
+    .chat-header {
+        padding: 8px 16px;
+    }
+
+    .chat-input-container {
+        padding: 8px 16px;
+    }
+
+    .input-wrapper {
+        padding: 4px 8px;
+    }
+}
+
+/* Large screens */
+@media only screen and (min-width: 1200px) {
+    .message-content {
+        max-width: 800px;
+    }
+
+    .input-wrapper {
+        max-width: 800px;
+    }
+}

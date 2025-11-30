@@ -1,0 +1,101 @@
+/* Document Upload Styles - ChatGPT inspired */
+.document-area {
+    padding: 12px 24px;
+    background: var(--bg-primary);
+    border-top: 1px solid var(--border-light);
+    max-width: 768px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.document-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.document-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    font-size: 13px;
+    color: var(--text-primary);
+    transition: all 0.15s ease;
+    cursor: pointer;
+}
+
+.document-item:hover {
+    background: var(--bg-hover);
+    border-color: var(--text-tertiary);
+}
+
+.document-item svg {
+    flex-shrink: 0;
+    color: var(--text-secondary);
+}
+
+.document-name {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.document-size {
+    color: var(--text-tertiary);
+    font-size: 11px;
+}
+
+.document-remove {
+    background: transparent;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.15s ease;
+}
+
+.document-remove:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.upload-progress {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    border: 1px solid var(--border-light);
+}
+
+.upload-progress-bar {
+    flex: 1;
+    height: 4px;
+    background: var(--bg-tertiary);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.upload-progress-fill {
+    height: 100%;
+    background: var(--accent-color);
+    transition: width 0.3s ease;
+}
+
+.upload-progress-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    min-width: 40px;
+    text-align: right;
+}
