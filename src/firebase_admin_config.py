@@ -94,14 +94,18 @@ async def verify_token(id_token: str) -> dict:
         ValueError: If token is invalid
     """
     try:
+        # Log token info for debugging (not the full token for security)
+        token_preview = f"{id_token[:20]}...{id_token[-10:]}" if len(id_token) > 30 else id_token
+        logger.info(f"Verifying token (length={len(id_token)}, preview={token_preview})")
+        
         # Verify the ID token
         decoded_token = auth.verify_id_token(id_token)
 
         logger.info(f"Token verified for user: {decoded_token.get('uid')}")
         return decoded_token
 
-    except auth.InvalidIdTokenError:
-        logger.error("Invalid ID token")
+    except auth.InvalidIdTokenError as e:
+        logger.error(f"Invalid ID token: {str(e)}")
         raise ValueError("Invalid authentication token")
 
     except auth.ExpiredIdTokenError:
@@ -109,7 +113,7 @@ async def verify_token(id_token: str) -> dict:
         raise ValueError("Authentication token has expired")
 
     except Exception as e:
-        logger.error(f"Token verification error: {e}", exc_info=True)
+        logger.error(f"Token verification error: {type(e).__name__}: {e}", exc_info=True)
         raise ValueError("Failed to verify authentication token")
 
 

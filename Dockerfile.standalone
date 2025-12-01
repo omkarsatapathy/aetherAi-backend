@@ -1,0 +1,45 @@
+# Standalone Dockerfile with all dependencies
+# Use this for local builds when requirements.txt changes
+
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy UV from official image
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies using UV (much faster than pip!)
+RUN uv pip install --system --no-cache -r requirements.txt
+
+# Copy application code
+COPY backend.py .
+COPY src/ ./src/
+
+# Copy Firebase service account (for authentication)
+COPY firebase-service-account.json .
+
+# Set environment variables
+ENV GEMINI_API_KEY=""
+ENV GOOGLE_SEARCH_API_KEY=""
+ENV OPENAI_API_KEY=""
+ENV GOOGLE_SEARCH_ENGINE_ID=""
+ENV GOOGLE_MAPS_API_KEY=""
+ENV FIREBASE_SERVICE_ACCOUNT_PATH="/app/firebase-service-account.json"
+ENV PORT=8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')" || exit 1
+
+# Run the application
+CMD exec uvicorn backend:app --host 0.0.0.0 --port ${PORT} --workers 1 --timeout-keep-alive 300

@@ -1,5 +1,5 @@
 """FastAPI application initialization and configuration."""
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -73,6 +73,38 @@ def create_app() -> FastAPI:
     async def root_health():
         """Simple health check for Cloud Run."""
         return {"status": "ok"}
+
+    # Debug endpoint to check auth header (no auth required)
+    @app.get("/api/debug/auth")
+    async def debug_auth(request: Request):
+        """Debug endpoint to check what auth header is being sent."""
+        auth_header = request.headers.get('Authorization', 'NO AUTH HEADER')
+        
+        # Don't log the full token for security, just the structure
+        if auth_header and auth_header != 'NO AUTH HEADER':
+            parts = auth_header.split(' ')
+            if len(parts) == 2:
+                scheme = parts[0]
+                token = parts[1]
+                token_preview = f"{token[:20]}...{token[-10:]}" if len(token) > 30 else token
+                return {
+                    "auth_header_present": True,
+                    "scheme": scheme,
+                    "token_length": len(token),
+                    "token_preview": token_preview,
+                    "message": "Token found - check if it's a valid Firebase ID token"
+                }
+            else:
+                return {
+                    "auth_header_present": True,
+                    "error": "Malformed auth header",
+                    "raw_parts_count": len(parts),
+                    "message": "Expected format: 'Bearer <token>'"
+                }
+        return {
+            "auth_header_present": False,
+            "message": "No Authorization header found. Frontend must send 'Authorization: Bearer <firebase_id_token>'"
+        }
 
     # Startup event
     @app.on_event("startup")
