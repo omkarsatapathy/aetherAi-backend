@@ -11,7 +11,7 @@ Create or update your `.env` file:
 GEMINI_API_KEY=your_gemini_api_key_here
 
 # Optional (uses defaults if not specified)
-GEMINI_MODEL_ID=gemini-2.0-flash-exp
+GEMINI_MODEL_ID=gemini-2.5-flash-exp
 
 # For Gmail features (optional)
 # Place credentials.json in credentials/gmail/

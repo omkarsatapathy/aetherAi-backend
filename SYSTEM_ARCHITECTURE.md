@@ -22,7 +22,7 @@
                                ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                      COORDINATOR AGENT (Parent)                         │
-│                      gemini-2.0-flash-exp                              │
+│                      gemini-2.5-flash-exp                              │
 │  ┌──────────────────────────────────────────────────────────────────┐  │
 │  │  Role: Intelligent Router & Task Coordinator                     │  │
 │  │  • Analyzes user intent                                          │  │
@@ -48,7 +48,7 @@
 ```
 ┌─────────────────────────────────────────┐
 │         EMAIL AGENT                     │
-│  gemini-2.0-flash-exp                  │
+│  gemini-2.5-flash-exp                  │
 ├─────────────────────────────────────────┤
 │ SPECIALIZATION:                         │
 │  • Gmail reading & management           │
@@ -76,7 +76,7 @@
 ```
 ┌─────────────────────────────────────────┐
 │       NEWS READER AGENT                 │
-│  gemini-2.0-flash-exp                  │
+│  gemini-2.5-flash-exp                  │
 ├─────────────────────────────────────────┤
 │ SPECIALIZATION:                         │
 │  • News briefs & headlines              │
@@ -111,7 +111,7 @@
 ```
 ┌─────────────────────────────────────────┐
 │          MAPS AGENT                     │
-│  gemini-2.0-flash-exp                  │
+│  gemini-2.5-flash-exp                  │
 ├─────────────────────────────────────────┤
 │ SPECIALIZATION:                         │
 │  • Location services                    │
@@ -151,7 +151,7 @@
 ```
 ┌─────────────────────────────────────────┐
 │       RESEARCHER AGENT                  │
-│  gemini-2.0-flash-exp                  │
+│  gemini-2.5-flash-exp                  │
 ├─────────────────────────────────────────┤
 │ SPECIALIZATION:                         │
 │  • Deep multi-source research           │

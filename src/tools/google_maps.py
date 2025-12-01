@@ -47,7 +47,7 @@ def query_maps_with_gemini(
         client = _get_client()
 
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model=Config.GEMINI_MODEL_ID,
             contents=query,
             config=types.GenerateContentConfig(
                 # Turn on grounding with Google Maps

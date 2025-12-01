@@ -4,7 +4,7 @@ This package contains the Google ADK implementation of the multi-agent system,
 featuring streaming support, callbacks, and coordinated sub-agents.
 
 Supports multiple model providers via LiteLLM:
-- Gemini (native): "gemini-2.0-flash"
+- Gemini (native): "gemini-2.5-flash"
 - OpenAI: "openai/gpt-4o"
 - Anthropic: "anthropic/claude-3-5-sonnet-20241022"
 - Ollama: "ollama_chat/llama3.2"

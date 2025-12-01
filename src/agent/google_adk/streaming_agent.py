@@ -7,7 +7,7 @@ This implementation follows Google ADK best practices:
 - Implements multi-agent coordination via sub-agents
 
 Supports multiple model providers via LiteLLM:
-- Gemini (native): "gemini-2.0-flash"
+- Gemini (native): "gemini-2.5-flash"
 - OpenAI: "openai/gpt-4o"
 - Anthropic: "anthropic/claude-3-5-sonnet-20241022"
 - Ollama: "ollama_chat/llama3.2"
@@ -65,7 +65,7 @@ async def create_adk_streaming_response(
         session_id: Optional session ID for document queries
         user_id: Firebase Auth user ID for user-specific tools
         model_provider: Model provider string, e.g.:
-            - "gemini-2.0-flash" (default, native Gemini)
+            - "gemini-2.5-flash" (default, native Gemini)
             - "openai/gpt-4o" (OpenAI via LiteLLM)
             - "anthropic/claude-3-5-sonnet-20241022" (Anthropic via LiteLLM)
             - "ollama_chat/llama3.2" (Ollama via LiteLLM)

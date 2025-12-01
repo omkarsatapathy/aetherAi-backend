@@ -35,8 +35,8 @@ def analyze_image_with_gemini(image_data: bytes, prompt: str = "Describe what yo
 
         logger.info(f"Analyzing image: {img.size}, mode: {img.mode}")
 
-        # Use gemini-2.5-flash for vision
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        # Use configured Gemini model for vision
+        model = genai.GenerativeModel(Config.GEMINI_MODEL_ID)
 
         response = model.generate_content([prompt, img])
 

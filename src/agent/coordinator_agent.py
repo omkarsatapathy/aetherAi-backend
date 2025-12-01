@@ -34,7 +34,7 @@ def create_coordinator_agent() -> LlmAgent:
     # Create the coordinator parent agent
     coordinator = LlmAgent(
         name="CoordinatorAgent",
-        model=os.getenv("GEMINI_MODEL_ID", "gemini-2.0-flash-exp"),
+        model=os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash-exp"),
         description=(
             "I am the Coordinator Agent. I manage a team of specialized agents and route "
             "user requests to the most appropriate specialist. My team includes:\n"

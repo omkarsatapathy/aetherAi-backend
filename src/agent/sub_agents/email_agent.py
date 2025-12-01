@@ -22,7 +22,7 @@ def create_email_agent() -> LlmAgent:
     """
     email_agent = LlmAgent(
         name="EmailAgent",
-        model=os.getenv("GEMINI_MODEL_ID", "gemini-2.0-flash-exp"),
+        model=os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash-exp"),
         description=(
             "I am the Email Reading Agent. I specialize in reading and managing Gmail messages. "
             "I can fetch recent emails, check authentication status, and provide email summaries. "

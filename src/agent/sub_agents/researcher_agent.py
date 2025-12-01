@@ -25,7 +25,7 @@ def create_researcher_agent() -> LlmAgent:
     """
     researcher_agent = LlmAgent(
         name="ResearcherAgent",
-        model=os.getenv("GEMINI_MODEL_ID", "gemini-2.0-flash-exp"),
+        model=os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash-exp"),
         description=(
             "I am the Researcher Agent. I specialize in conducting thorough, multi-source research, "
             "and generating formal, comprehensive reports with analysis, tables, and recommendations. "

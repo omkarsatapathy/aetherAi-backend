@@ -5,6 +5,7 @@ from strands import tool
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from ..config import Config
 
 # Load environment variables
 env_path = Path(__file__).parent.parent.parent / ".env"
@@ -44,7 +45,7 @@ if not GEMINI_API_KEY:
 os.environ['GOOGLE_API_KEY'] = GEMINI_API_KEY
 
 time_agent = Agent(
-    model='gemini-2.0-flash-exp',
+    model=Config.GEMINI_MODEL_ID,
     tools=[time_tools],
     name="TimeAgent",
     description="An agent that provides the current date and time in IST."

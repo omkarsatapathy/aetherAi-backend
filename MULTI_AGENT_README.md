@@ -223,7 +223,7 @@ Required environment variables in `.env`:
 GEMINI_API_KEY=your_api_key_here
 
 # Model configuration (optional)
-GEMINI_MODEL_ID=gemini-2.0-flash-exp
+GEMINI_MODEL_ID=gemini-2.5-flash-exp
 
 # Gmail OAuth credentials (for EmailAgent)
 # Place credentials.json in credentials/gmail/

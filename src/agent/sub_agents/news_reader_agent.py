@@ -24,7 +24,7 @@ def create_news_reader_agent() -> LlmAgent:
     """
     news_reader_agent = LlmAgent(
         name="NewsReaderAgent",
-        model=os.getenv("GEMINI_MODEL_ID", "gemini-2.0-flash-exp"),
+        model=os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash-exp"),
         description=(
             "I am the News Reader Agent. I specialize in reading news, providing morning briefs, "
             "and delivering news in an engaging storytelling format. "

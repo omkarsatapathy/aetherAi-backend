@@ -4,7 +4,7 @@ This module implements the coordinator agent using Google ADK's LlmAgent with
 sub-agents. It supports streaming via callbacks for real-time updates.
 
 Supports multiple model providers via LiteLLM:
-- Gemini (native): "gemini-2.0-flash"
+- Gemini (native): "gemini-2.5-flash"
 - OpenAI: "openai/gpt-4o"
 - Anthropic: "anthropic/claude-3-5-sonnet-20241022"
 - Ollama: "ollama_chat/llama3.2"
@@ -48,7 +48,7 @@ def create_coordinator_agent(
         callback_handler: Optional ADKCallbackHandler for streaming support
         streaming_context: Optional context for streaming events
         model_provider: Model provider string, e.g.:
-            - "gemini-2.0-flash" (default, native Gemini)
+            - "gemini-2.5-flash" (default, native Gemini)
             - "openai/gpt-4o" (OpenAI via LiteLLM)
             - "anthropic/claude-3-5-sonnet-20241022" (Anthropic via LiteLLM)
             - "ollama_chat/llama3.2" (Ollama via LiteLLM)
@@ -111,9 +111,9 @@ def create_coordinator_agent(
             logger.info(f"Using model provider: {model_provider}")
         except ValueError as e:
             logger.warning(f"Model provider '{model_provider}' not available: {e}. Falling back to default Gemini.")
-            model = os.getenv("GEMINI_MODEL_ID", "gemini-2.0-flash")
+            model = os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash")
     else:
-        model = os.getenv("GEMINI_MODEL_ID", "gemini-2.0-flash")
+        model = os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash")
         logger.info(f"Using default Gemini model: {model}")
 
     # Create the coordinator parent agent (uses datetime_ist_tool from tools module)
@@ -124,7 +124,7 @@ def create_coordinator_agent(
             "I am the Coordinator Agent. I manage a team of specialized agents and route "
             "user requests to the most appropriate specialist. My team includes:\n"
             "- EmailAgent: For reading and managing Gmail messages\n"
-            "- NewsReaderAgent: For news updates, morning briefs, and engaging news delivery\n"
+            "- NewsReaderAgent: For news updates, morning briefs, weather updates and engaging news delivery\n"
             "- MapsAgent: For locations, directions, traffic, and place recommendations\n"
             "- ResearcherAgent: For deep research, formal reports, and analytical investigations"
         ),
@@ -149,6 +149,8 @@ def create_coordinator_agent(
             "   - For EMAIL requests (inbox, messages, unread emails, email from someone):\n"
             "     → Use transfer_to_agent() to delegate to EmailAgent\n"
             "   - For NEWS requests (news brief, headlines, morning news, current events stories):\n"
+            "     → Use transfer_to_agent() to delegate to NewsReaderAgent\n"
+            "   - For WEATHER requests (weather updates, weather forecast, temperature, weather for any city):\n"
             "     → Use transfer_to_agent() to delegate to NewsReaderAgent\n"
             "   - For LOCATION requests (directions, nearby places, traffic, restaurants, navigation):\n"
             "     → Use transfer_to_agent() to delegate to MapsAgent\n"

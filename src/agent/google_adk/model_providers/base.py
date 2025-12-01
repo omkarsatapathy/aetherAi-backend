@@ -7,7 +7,7 @@ class ADKBaseModelProvider(ABC):
     """Abstract base class for ADK model providers.
     
     ADK supports models via:
-    1. Direct string (Gemini models): "gemini-2.0-flash"
+    1. Direct string (Gemini models): "gemini-2.5-flash"
     2. LiteLlm wrapper (OpenAI, Anthropic, Ollama, etc.)
     3. Vertex AI endpoints: "projects/.../endpoints/..."
     """

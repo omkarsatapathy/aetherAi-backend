@@ -6,6 +6,7 @@ from src.agent.streaming_agent import create_streaming_response
 from src.agent.google_adk import create_adk_streaming_response, ADKModelProviderFactory
 from src.middleware.auth_middleware import get_current_user, get_user_id_from_token
 from src.logging_config import get_logger
+from src.config import Config
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 
@@ -19,7 +20,7 @@ class ChatStreamRequest(BaseModel):
     """Request model for chat streaming that matches frontend payload."""
     message: str  # For Swagger UI - simple message
     session_id: Optional[str] = None
-    model_provider: Optional[str] = "gemini-2.0-flash"
+    model_provider: Optional[str] = Config.GEMINI_MODEL_ID
     response_style: Optional[str] = "Normal"
     web_search: bool = False
     conversation_history: List[Dict[str, Any]] = []
@@ -116,13 +117,13 @@ async def chat_stream_get(
 async def chat_adk_stream_post(request: ChatStreamRequest, current_user: dict = Depends(get_current_user)):
     """
     Stream chat responses using Google ADK multi-agent system (POST).
-    
+
     Supports multiple model providers via LiteLLM:
-    - "gemini-2.0-flash" (default, native Gemini)
+    - Default configured Gemini model (from GEMINI_MODEL_ID env var)
     - "openai/gpt-4o" (OpenAI via LiteLLM)
     - "anthropic/claude-3-5-sonnet-20241022" (Anthropic via LiteLLM)
     - "ollama_chat/llama3.2" (Ollama via LiteLLM)
-    
+
     Requires Firebase Authentication.
     """
     # Extract user_id from authenticated token
@@ -158,14 +159,14 @@ async def chat_adk_stream_post(request: ChatStreamRequest, current_user: dict = 
 async def chat_adk_stream_get(
     session_id: str = Query(...),
     message: str = Query(...),
-    model_provider: Optional[str] = Query("gemini-2.0-flash"),
+    model_provider: Optional[str] = Query(Config.GEMINI_MODEL_ID),
     response_style: Optional[str] = Query("Normal"),
 ):
     """
     Stream chat responses using Google ADK multi-agent system (GET for EventSource).
-    
+
     Supports multiple model providers via LiteLLM:
-    - "gemini-2.0-flash" (default, native Gemini)
+    - Default configured Gemini model (from GEMINI_MODEL_ID env var)
     - "openai/gpt-4o" (OpenAI via LiteLLM)
     - "anthropic/claude-3-5-sonnet-20241022" (Anthropic via LiteLLM)
     - "ollama_chat/llama3.2" (Ollama via LiteLLM)

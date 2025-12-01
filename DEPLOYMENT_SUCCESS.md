@@ -82,7 +82,7 @@ CoordinatorAgent (Parent)
 - ✓ `GEMINI_API_KEY` - Working
 - ✓ `GOOGLE_API_KEY` - Working
 - ✓ `GOOGLE_SEARCH_ENGINE_ID` - Working
-- ✓ Model: `gemini-2.0-flash-exp` - Working
+- ✓ Model: `gemini-2.5-flash-exp` - Working
 
 ---
 

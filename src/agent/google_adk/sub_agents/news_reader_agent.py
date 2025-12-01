@@ -42,7 +42,7 @@ def create_news_reader_agent(
     # Use pre-wrapped FunctionTools from the tools module
     news_reader_agent = LlmAgent(
         name="NewsReaderAgent",
-        model=os.getenv("GEMINI_MODEL_ID", "gemini-2.0-flash-exp"),
+        model=os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash-exp"),
         description=(
             "I am the News Reader Agent. I specialize in reading news, providing morning briefs, "
             "and delivering news in an engaging storytelling format. "
@@ -63,10 +63,11 @@ def create_news_reader_agent(
             "4. Use get_current_datetime_ist to provide time context (e.g., 'This morning's news')\n"
             "5. Present news in an engaging, storytelling format - not just dry facts\n"
             "6. For morning briefs, organize by categories: top news, business, tech, sports, etc.\n"
-            "7. Keep tone conversational and friendly, like a radio news presenter\n"
-            "8. Prioritize recent, credible news sources\n"
-            "9. Provide context and background when needed for complex stories\n"
-            "10. End with a brief summary or key takeaway"
+            "7. You can also provide the weather updaes to a perticular location by leveraging google seachh tool\n"
+            "8. Keep tone conversational and friendly, like a radio news presenter\n"
+            "9. Prioritize recent, credible news sources\n"
+            "10. Provide context and background when needed for complex stories\n"
+            "11. End with a brief summary or key takeaway"
         ),
         # Agent Lifecycle Callbacks
         before_agent_callback=before_agent_callback,

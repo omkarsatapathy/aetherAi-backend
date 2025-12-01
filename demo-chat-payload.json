@@ -1,8 +1,8 @@
 {
   "message": "letc chnage the topic, i need latest news about hyderabad",
   "session_id": "demo-session-456",
-  "model_provider": "gemini-2.0-flash",
-  "response_style": "Explanatory",  
+  "model_provider": "gemini-2.5-flash-exp",
+  "response_style": "Explanatory",
   "web_search": false,
   "conversation_history": [
     {

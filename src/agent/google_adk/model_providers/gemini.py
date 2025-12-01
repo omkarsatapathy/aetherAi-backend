@@ -14,8 +14,8 @@ class GeminiProvider(ADKBaseModelProvider):
     No wrapper needed - just return the model string.
     
     Supported models:
-    - gemini-2.0-flash (default)
-    - gemini-2.0-flash-lite
+    - gemini-2.5-flash (default)
+    - gemini-2.5-flash-lite
     - gemini-2.5-pro-preview-03-25
     - gemini-1.5-pro
     - gemini-1.5-flash
@@ -23,8 +23,8 @@ class GeminiProvider(ADKBaseModelProvider):
 
     # Available Gemini models
     AVAILABLE_MODELS = {
-        "gemini-2.0-flash": "Gemini 2.0 Flash (Fast)",
-        "gemini-2.0-flash-lite": "Gemini 2.0 Flash Lite (Fastest)",
+        "gemini-2.5-flash": "Gemini 2.0 Flash (Fast)",
+        "gemini-2.5-flash-lite": "Gemini 2.0 Flash Lite (Fastest)",
         "gemini-2.5-pro-preview-03-25": "Gemini 2.5 Pro (Powerful)",
         "gemini-1.5-pro": "Gemini 1.5 Pro (Stable)",
         "gemini-1.5-flash": "Gemini 1.5 Flash (Stable Fast)",
@@ -35,9 +35,9 @@ class GeminiProvider(ADKBaseModelProvider):
         Initialize Gemini provider.
 
         Args:
-            model_id: Gemini model ID to use (default: gemini-2.0-flash)
+            model_id: Gemini model ID to use (default: gemini-2.5-flash)
         """
-        self.model_id = model_id or Config.GEMINI_MODEL_ID or "gemini-2.0-flash"
+        self.model_id = model_id or Config.GEMINI_MODEL_ID or "gemini-2.5-flash"
         self._api_key = Config.GEMINI_API_KEY
 
     def get_model(self) -> str:

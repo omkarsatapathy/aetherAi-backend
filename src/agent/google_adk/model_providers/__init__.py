@@ -13,7 +13,7 @@ Usage:
     )
     
     # Get model for LlmAgent
-    model = get_adk_model("gemini-2.0-flash")
+    model = get_adk_model("gemini-2.5-flash")
     model = get_adk_model("openai/gpt-4o")
     model = get_adk_model("ollama_chat/llama3")
 """

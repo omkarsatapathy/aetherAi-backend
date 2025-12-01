@@ -11,7 +11,7 @@ Usage:
     from src.agent.google_adk.model_providers import get_adk_model
     
     # Get model for LlmAgent
-    model = get_adk_model("gemini-2.0-flash")
+    model = get_adk_model("gemini-2.5-flash")
     model = get_adk_model("openai/gpt-4o")
     model = get_adk_model("anthropic/claude-3-5-sonnet-20241022")
     model = get_adk_model("ollama_chat/llama3.2")
@@ -45,7 +45,7 @@ class ADKModelProviderFactory:
     
     # Default models for each provider
     _default_models = {
-        "gemini": "gemini-2.0-flash",
+        "gemini": "gemini-2.5-flash",
         "openai": "openai/gpt-4o",
         "anthropic": "anthropic/claude-3-5-sonnet-20241022",
         "ollama_chat": "ollama_chat/llama3.2",
@@ -60,7 +60,7 @@ class ADKModelProviderFactory:
 
         Args:
             model_string: Model identifier string, e.g.:
-                - "gemini-2.0-flash" (Gemini)
+                - "gemini-2.5-flash" (Gemini)
                 - "openai/gpt-4o" (OpenAI)
                 - "anthropic/claude-3-5-sonnet-20241022" (Anthropic)
                 - "ollama_chat/llama3.2" (Ollama)
@@ -243,7 +243,7 @@ class ADKModelProviderFactory:
             Default model string for the best available provider
         """
         default_provider = cls.get_default_provider()
-        return cls._default_models.get(default_provider, "gemini-2.0-flash")
+        return cls._default_models.get(default_provider, "gemini-2.5-flash")
 
 
 # Convenience function
@@ -255,7 +255,7 @@ def get_adk_model(model_string: str) -> Union[str, Any]:
     
     Args:
         model_string: Model identifier string, e.g.:
-            - "gemini-2.0-flash" (Gemini)
+            - "gemini-2.5-flash" (Gemini)
             - "openai/gpt-4o" (OpenAI via LiteLLM)
             - "anthropic/claude-3-5-sonnet-20241022" (Anthropic via LiteLLM)
             - "ollama_chat/llama3.2" (Ollama via LiteLLM)
