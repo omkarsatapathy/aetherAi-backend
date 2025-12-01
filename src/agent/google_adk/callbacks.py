@@ -72,7 +72,7 @@ class ToolLimitCallback:
     to enforce a maximum number of tool calls.
     """
     
-    def __init__(self, max_calls: int = 20, context: Optional[StreamingCallbackContext] = None):
+    def __init__(self, max_calls: int = 50, context: Optional[StreamingCallbackContext] = None):
         """
         Initialize the tool limit callback.
         
@@ -173,27 +173,27 @@ class ADKCallbackHandler:
     
     # Map tool names to display names with emojis
     TOOL_DISPLAY_NAMES = {
-        'calculator': '🧮 Calculating',
-        'google_search_with_context': '🌐 Searching the web',
-        'get_current_datetime_ist': '🕐 Getting current time',
-        'query_documents': '📄 Analyzing documents',
-        'query_documents_wrapper': '📄 Analyzing documents',
-        'fetch_gmail_messages': '📧 Fetching news from emails',
-        'fetch_gmail_wrapper': '📧 Fetching news from emails',
-        'gmail_auth_status': '🔐 Checking Gmail auth status',
-        'gmail_auth_wrapper': '🔐 Checking Gmail auth status',
-        'fetch_url_content': '🔗 Fetching URL content',
-        'fetch_multiple_urls': '🔗 Fetching multiple URLs',
-        'search_nearby_places': '📍 Searching nearby places',
-        'get_directions': '🗺️ Getting directions',
-        'get_traffic_info': '🚗 Checking traffic',
-        'get_place_details': '🏪 Getting place details',
-        'explore_area': '🔍 Exploring area'
+        # 'calculator': 'Calculating',
+        'google_search_with_context': 'Searching',
+        # 'get_current_datetime_ist': 'Getting current time',
+        'query_documents': 'Analyzing documents',
+        # 'query_documents_wrapper': 'Analyzing documents',
+        'fetch_gmail_messages': 'Fetching news from emails',
+        # 'fetch_gmail_wrapper': 'Fetching news from emails',
+        'gmail_auth_status': 'Authenticating',
+        # 'gmail_auth_wrapper': 'Checking Gmail auth status',
+        'fetch_url_content': 'Fetching content ',
+        'fetch_multiple_urls': 'Fetching multiple URLs',
+        'search_nearby_places': 'Searching nearby places',
+        'get_directions': 'Getting directions',
+        'get_traffic_info': 'Checking traffic',
+        # 'get_place_details': 'Getting place details',
+        # 'explore_area': 'Exploring area'
     }
     
     def __init__(
         self,
-        max_tool_calls: int = 20,
+        max_tool_calls: int = 50,
         streaming_context: Optional[StreamingCallbackContext] = None
     ):
         """
