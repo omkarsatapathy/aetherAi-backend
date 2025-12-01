@@ -31,13 +31,18 @@ class FirestoreService:
             user_ref = self.db.collection('users').document(user_id)
 
             # Add timestamps
-            user_data['updatedAt'] = firestore.SERVER_TIMESTAMP
+            user_data['updated_at'] = firestore.SERVER_TIMESTAMP
 
             # Set or merge
             user_ref.set(user_data, merge=True)
 
+            # Read back the document to get actual timestamp values
+            # (SERVER_TIMESTAMP is a Sentinel object that can't be serialized)
+            updated_doc = user_ref.get()
+            result = updated_doc.to_dict() if updated_doc.exists else user_data
+
             logger.info(f"User profile updated: {user_id}")
-            return user_data
+            return result
 
         except Exception as e:
             logger.error(f"Error updating user {user_id}: {e}", exc_info=True)
@@ -83,18 +88,23 @@ class FirestoreService:
             session_ref = self.db.collection('users').document(user_id).collection('sessions').document(session_id)
 
             session_data = {
-                'sessionId': session_id,
+                'session_id': session_id,
                 'title': title,
-                'hasDocuments': False,
-                'vectorDbPath': None,
-                'createdAt': firestore.SERVER_TIMESTAMP,
-                'updatedAt': firestore.SERVER_TIMESTAMP
+                'has_documents': False,
+                'vector_db_path': None,
+                'created_at': firestore.SERVER_TIMESTAMP,
+                'updated_at': firestore.SERVER_TIMESTAMP
             }
 
             session_ref.set(session_data)
 
+            # Read back the document to get actual timestamp values
+            # (SERVER_TIMESTAMP is a Sentinel object that can't be serialized)
+            created_doc = session_ref.get()
+            result = created_doc.to_dict() if created_doc.exists else session_data
+
             logger.info(f"Session created: {session_id} for user {user_id}")
-            return session_data
+            return result
 
         except Exception as e:
             logger.error(f"Error creating session: {e}", exc_info=True)
@@ -136,7 +146,7 @@ class FirestoreService:
         """
         try:
             sessions_ref = self.db.collection('users').document(user_id).collection('sessions')
-            query = sessions_ref.order_by('updatedAt', direction=firestore.Query.DESCENDING).limit(limit)
+            query = sessions_ref.order_by('updated_at', direction=firestore.Query.DESCENDING).limit(limit)
 
             docs = query.stream()
             sessions = [doc.to_dict() for doc in docs]
@@ -165,7 +175,7 @@ class FirestoreService:
 
             session_ref.update({
                 'title': title,
-                'updatedAt': firestore.SERVER_TIMESTAMP
+                'updated_at': firestore.SERVER_TIMESTAMP
             })
 
             logger.info(f"Session {session_id} title updated")
@@ -190,7 +200,7 @@ class FirestoreService:
             session_ref = self.db.collection('users').document(user_id).collection('sessions').document(session_id)
 
             session_ref.update({
-                'updatedAt': firestore.SERVER_TIMESTAMP
+                'updated_at': firestore.SERVER_TIMESTAMP
             })
 
             return True
@@ -277,19 +287,25 @@ class FirestoreService:
             message_data = {
                 'role': role,
                 'content': content,
-                'audioFileRef': audio_ref,
+                'audio_file_ref': audio_ref,
                 'timestamp': firestore.SERVER_TIMESTAMP
             }
 
             # Add message
             doc_ref = messages_ref.add(message_data)
-            message_data['messageId'] = doc_ref[1].id
+            message_id = doc_ref[1].id
+
+            # Read back the document to get actual timestamp values
+            # (SERVER_TIMESTAMP is a Sentinel object that can't be serialized)
+            created_doc = doc_ref[1].get()
+            result = created_doc.to_dict() if created_doc.exists else message_data
+            result['message_id'] = message_id
 
             # Update session timestamp
             await self.update_session_timestamp(user_id, session_id)
 
             logger.info(f"Message added to session {session_id}")
-            return message_data
+            return result
 
         except Exception as e:
             logger.error(f"Error adding message: {e}", exc_info=True)
@@ -315,7 +331,7 @@ class FirestoreService:
 
             for doc in docs:
                 msg_data = doc.to_dict()
-                msg_data['messageId'] = doc.id
+                msg_data['message_id'] = doc.id
                 messages.append(msg_data)
 
             logger.info(f"Retrieved {len(messages)} messages for session {session_id}")
@@ -347,21 +363,27 @@ class FirestoreService:
 
             document_data = {
                 'filename': filename,
-                'fileRef': file_ref,
-                'fileSize': file_size,
-                'mimeType': mime_type,
-                'uploadedAt': firestore.SERVER_TIMESTAMP
+                'file_ref': file_ref,
+                'file_size': file_size,
+                'mime_type': mime_type,
+                'uploaded_at': firestore.SERVER_TIMESTAMP
             }
 
             # Add document
             doc_ref = documents_ref.add(document_data)
-            document_data['documentId'] = doc_ref[1].id
+            document_id = doc_ref[1].id
+
+            # Read back the document to get actual timestamp values
+            # (SERVER_TIMESTAMP is a Sentinel object that can't be serialized)
+            created_doc = doc_ref[1].get()
+            result = created_doc.to_dict() if created_doc.exists else document_data
+            result['document_id'] = document_id
 
             # Update session
             await self.update_session_timestamp(user_id, session_id)
 
             logger.info(f"Document added to session {session_id}")
-            return document_data
+            return result
 
         except Exception as e:
             logger.error(f"Error adding document: {e}", exc_info=True)
@@ -380,14 +402,14 @@ class FirestoreService:
         """
         try:
             documents_ref = self.db.collection('users').document(user_id).collection('sessions').document(session_id).collection('documents')
-            query = documents_ref.order_by('uploadedAt', direction=firestore.Query.ASCENDING)
+            query = documents_ref.order_by('uploaded_at', direction=firestore.Query.ASCENDING)
 
             docs = query.stream()
             documents = []
 
             for doc in docs:
                 doc_data = doc.to_dict()
-                doc_data['documentId'] = doc.id
+                doc_data['document_id'] = doc.id
                 documents.append(doc_data)
 
             logger.info(f"Retrieved {len(documents)} documents for session {session_id}")
