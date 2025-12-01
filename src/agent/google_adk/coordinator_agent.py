@@ -18,7 +18,7 @@ from .sub_agents import (
     create_researcher_agent
 )
 from .callbacks import ADKCallbackHandler, StreamingCallbackContext
-from .tools import datetime_ist_tool
+from .tools import datetime_ist_tool, query_documents_tool
 from .model_providers import get_adk_model, ADKModelProviderFactory
 from ...config import Config
 from ...logging_config import get_logger
@@ -135,7 +135,7 @@ def create_coordinator_agent(
             researcher_agent
         ],
         # Coordinator's own tools
-        tools=[datetime_ist_tool],
+        tools=[datetime_ist_tool, query_documents_tool],
         instruction=(
             "You are the Coordinator Agent managing a team of specialists. Your role is to:\n\n"
 
@@ -164,7 +164,8 @@ def create_coordinator_agent(
             "   - Simple greetings and general conversation\n"
             "   - Questions about your capabilities\n"
             "   - Requests that don't fit any specialist\n"
-            "   - Date/time queries (use get_current_datetime_ist)\n\n"
+            "   - Date/time queries (use get_current_datetime_ist)\n"
+            "   - Document queries (use query_documents to answer questions about uploaded documents)\n\n"
 
             "5. DELEGATION PROCESS:\n"
             "   - Use the transfer_to_agent() function to delegate\n"

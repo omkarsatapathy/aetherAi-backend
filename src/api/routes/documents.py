@@ -1,17 +1,18 @@
 """Document upload and management endpoints."""
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
 from typing import Optional, List
 from pathlib import Path
-import shutil
 from src.database import DatabaseManager
 from src.tools.document_rag import get_rag_manager
 from src.logging_config import get_logger
+from src.services.firestore_service import firestore_service
+from src.middleware.auth_middleware import get_current_user, get_user_id_from_token
 
 logger = get_logger("chatbot.routes.documents")
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
-# Database manager will be injected by the app
+# Database manager will be injected by the app (kept for backward compatibility)
 _db_manager: Optional[DatabaseManager] = None
 
 
@@ -24,26 +25,27 @@ def set_db_manager(db_manager: DatabaseManager):
 @router.post("/upload")
 async def upload_documents(
     session_id: str = Form(...),
-    files: List[UploadFile] = File(...)
+    files: List[UploadFile] = File(...),
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Upload documents for a session and index them for RAG.
+    Requires Firebase Authentication.
 
     Args:
         session_id: Session identifier
         files: List of files to upload
+        current_user: Authenticated user from token
 
     Returns:
         Upload status with indexed document information
     """
-    if not _db_manager:
-        raise HTTPException(status_code=500, detail="Database manager not initialized")
-
-    logger.info(f"Uploading {len(files)} documents for session {session_id}")
+    user_id = get_user_id_from_token(current_user)
+    logger.info(f"Uploading {len(files)} documents for session {session_id} by user {user_id}")
 
     try:
-        # Verify session exists
-        session = _db_manager.get_session(session_id)
+        # Verify session exists for this user
+        session = await firestore_service.get_session(user_id, session_id)
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
 
@@ -70,12 +72,14 @@ async def upload_documents(
 
             logger.info(f"Saved file: {file.filename} ({file_size} bytes)")
 
-            # Add document record to database
-            doc_record = _db_manager.add_document(
+            # Add document record to Firestore
+            doc_record = await firestore_service.add_document(
+                user_id=user_id,
                 session_id=session_id,
                 filename=file.filename,
-                file_path=str(file_path),
-                file_size=file_size
+                file_ref=str(file_path),
+                file_size=file_size,
+                mime_type=file.content_type or "application/octet-stream"
             )
 
             uploaded_files.append(doc_record)
@@ -92,9 +96,13 @@ async def upload_documents(
                 detail=f"Failed to index documents: {index_result.get('error')}"
             )
 
-        # Update session with vector DB path
+        # Update session with vector DB path in Firestore
         vector_db_path = index_result.get("vector_db_path")
-        _db_manager.update_session_vector_db(session_id, vector_db_path)
+        session_ref = firestore_service.db.collection('users').document(user_id).collection('sessions').document(session_id)
+        session_ref.update({
+            'has_documents': True,
+            'vector_db_path': vector_db_path
+        })
 
         logger.info(
             f"Successfully uploaded and indexed {len(uploaded_files)} documents",
@@ -121,26 +129,30 @@ async def upload_documents(
 
 
 @router.get("/{session_id}")
-async def get_documents(session_id: str):
+async def get_documents(
+    session_id: str,
+    current_user: dict = Depends(get_current_user)
+):
     """
     Get all documents for a session.
+    Requires Firebase Authentication.
 
     Args:
         session_id: Session identifier
+        current_user: Authenticated user from token
 
     Returns:
         List of documents with metadata
     """
-    if not _db_manager:
-        raise HTTPException(status_code=500, detail="Database manager not initialized")
+    user_id = get_user_id_from_token(current_user)
 
     try:
-        # Verify session exists
-        session = _db_manager.get_session(session_id)
+        # Verify session exists for this user
+        session = await firestore_service.get_session(user_id, session_id)
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
 
-        documents = _db_manager.get_documents(session_id)
+        documents = await firestore_service.get_documents(user_id, session_id)
 
         return {
             "session_id": session_id,
@@ -158,25 +170,29 @@ async def get_documents(session_id: str):
 
 
 @router.post("/{session_id}/query")
-async def query_documents(session_id: str, query: str = Form(...)):
+async def query_documents(
+    session_id: str,
+    query: str = Form(...),
+    current_user: dict = Depends(get_current_user)
+):
     """
     Query documents using RAG for a specific session.
+    Requires Firebase Authentication.
 
     Args:
         session_id: Session identifier
         query: Query string to search documents
+        current_user: Authenticated user from token
 
     Returns:
         Query results with answer and sources
     """
-    if not _db_manager:
-        raise HTTPException(status_code=500, detail="Database manager not initialized")
-
-    logger.info(f"Querying documents for session {session_id}: {query}")
+    user_id = get_user_id_from_token(current_user)
+    logger.info(f"Querying documents for session {session_id} by user {user_id}: {query}")
 
     try:
-        # Verify session exists
-        session = _db_manager.get_session(session_id)
+        # Verify session exists for this user
+        session = await firestore_service.get_session(user_id, session_id)
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
 

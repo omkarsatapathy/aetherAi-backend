@@ -209,6 +209,38 @@ class FirestoreService:
             logger.error(f"Error updating session timestamp: {e}", exc_info=True)
             return False
 
+    async def find_session_by_id(self, session_id: str) -> Optional[tuple[str, dict]]:
+        """
+        Find a session by session_id across all users.
+        This is useful when user_id is not available (e.g., unauthenticated requests).
+
+        Args:
+            session_id: Session ID to search for
+
+        Returns:
+            Tuple of (user_id, session_data) if found, None otherwise
+        """
+        try:
+            # Query all users' sessions collections for this session_id
+            users_ref = self.db.collection('users')
+            users = users_ref.stream()
+
+            for user_doc in users:
+                user_id = user_doc.id
+                session_ref = self.db.collection('users').document(user_id).collection('sessions').document(session_id)
+                session_doc = session_ref.get()
+
+                if session_doc.exists:
+                    logger.info(f"Found session {session_id} for user {user_id}")
+                    return (user_id, session_doc.to_dict())
+
+            logger.warning(f"Session {session_id} not found in any user's sessions")
+            return None
+
+        except Exception as e:
+            logger.error(f"Error finding session {session_id}: {e}", exc_info=True)
+            return None
+
     async def delete_session(self, user_id: str, session_id: str) -> bool:
         """
         Delete a session and all its messages.

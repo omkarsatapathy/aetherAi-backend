@@ -35,6 +35,7 @@ from .callbacks import (
 from ...config import Config
 from ...logging_config import get_logger
 from ...utils.token_tracker import get_request_tracker, reset_request_tracker
+from ...tools.document_rag import set_current_session_id
 
 logger = get_logger("chatbot.adk_streaming")
 
@@ -97,16 +98,19 @@ async def create_adk_streaming_response(
         # Generate session ID if not provided
         if session_id is None:
             session_id = f"session_{uuid.uuid4().hex[:8]}"
-        
+
         if user_id is None:
             user_id = DEFAULT_USER_ID
 
-        # Create session
+        # Set session_id in context for tools to access
+        set_current_session_id(session_id)
+
+        # Create session with session_id in state for tool access
         await session_service.create_session(
             app_name=APP_NAME,
             user_id=user_id,
             session_id=session_id,
-            state={}
+            state={'session_id': session_id, 'user_id': user_id}
         )
 
         # Create runner

@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
+from contextvars import ContextVar
 from llama_index.core import (
     VectorStoreIndex,
     SimpleDirectoryReader,
@@ -22,6 +23,9 @@ logger = get_logger("chatbot.tools.document_rag")
 
 # Global storage for RAG managers per session
 _rag_managers: Dict[str, 'DocumentRAGManager'] = {}
+
+# Context variable to store current session_id for tool calls
+_current_session_id: ContextVar[Optional[str]] = ContextVar('current_session_id', default=None)
 
 
 class DocumentRAGManager:
@@ -106,6 +110,9 @@ class DocumentRAGManager:
                 }}
             )
 
+            # Store documents regardless of cache threshold (needed for simple prompt method)
+            self.cached_documents = documents
+
             # Only cache if above minimum token threshold
             if token_count < self.min_cache_tokens:
                 logger.info(
@@ -144,8 +151,6 @@ class DocumentRAGManager:
                 contents=[combined_text],
                 ttl=timedelta(seconds=self.cache_ttl)
             )
-
-            self.cached_documents = documents
 
             logger.info(
                 f"Created context cache",
@@ -437,48 +442,85 @@ Answer the question using only the information provided in the document context.
                     extra={"extra_data": {"session_id": self.session_id}}
                 )
 
-                # Refresh cache TTL on each query
                 try:
-                    self.cache.update(ttl=timedelta(seconds=self.cache_ttl))
-                    logger.debug(
-                        f"Refreshed cache TTL",
-                        extra={"extra_data": {"session_id": self.session_id}}
+                    # Refresh cache TTL on each query
+                    try:
+                        self.cache.update(ttl=timedelta(seconds=self.cache_ttl))
+                        logger.debug(
+                            f"Refreshed cache TTL",
+                            extra={"extra_data": {"session_id": self.session_id}}
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to refresh cache TTL",
+                            extra={"extra_data": {"error": str(e)}}
+                        )
+
+                    # Query using cache
+                    model = genai.GenerativeModel.from_cached_content(cached_content=self.cache)
+                    response = model.generate_content(query_text)
+                    answer = response.text
+
+                    logger.info(
+                        f"Cached query completed successfully",
+                        extra={"extra_data": {
+                            "session_id": self.session_id,
+                            "response_length": len(answer)
+                        }}
                     )
-                except Exception as e:
+
+                    return {
+                        "success": True,
+                        "answer": answer,
+                        "method": "cached",
+                        "cache_name": self.cache.name
+                    }
+
+                except Exception as cache_error:
+                    # Cache query failed (expired, deleted, or other error) - fallback to simple prompt
                     logger.warning(
-                        f"Failed to refresh cache TTL",
-                        extra={"extra_data": {"error": str(e)}}
+                        f"Cached query failed, falling back to simple prompt method",
+                        extra={"extra_data": {
+                            "session_id": self.session_id,
+                            "error": str(cache_error)
+                        }}
                     )
+                    # Clear the invalid cache reference
+                    self.cache = None
+                    # Fall through to simple prompt method below
 
-                # Query using cache
-                model = genai.GenerativeModel.from_cached_content(cached_content=self.cache)
-                response = model.generate_content(query_text)
-                answer = response.text
-
-                logger.info(
-                    f"Cached query completed successfully",
-                    extra={"extra_data": {
-                        "session_id": self.session_id,
-                        "response_length": len(answer)
-                    }}
-                )
-
-                return {
-                    "success": True,
-                    "answer": answer,
-                    "method": "cached",
-                    "cache_name": self.cache.name
-                }
-
-            else:
+            # Use simple prompt method (either cache is None or cache query failed)
+            if self.cache is None:
                 # Documents below cache threshold, use simple prompt
                 logger.info(
-                    f"Using simple prompt method (below cache threshold)",
+                    f"Using simple prompt method (below cache threshold or cache unavailable)",
                     extra={"extra_data": {"session_id": self.session_id}}
                 )
 
+                # Safety check: ensure we have cached documents
+                if not self.cached_documents:
+                    logger.error(
+                        f"No cached documents available for simple prompt method",
+                        extra={"extra_data": {"session_id": self.session_id}}
+                    )
+                    return {
+                        "success": False,
+                        "error": "No document content available. This may indicate an indexing issue. Please try re-uploading your document."
+                    }
+
                 # Get all document text
                 combined_text = "\n\n---\n\n".join([doc.text for doc in self.cached_documents])
+
+                # Additional safety: check if combined_text is empty
+                if not combined_text or combined_text.strip() == "":
+                    logger.error(
+                        f"Document content is empty",
+                        extra={"extra_data": {"session_id": self.session_id}}
+                    )
+                    return {
+                        "success": False,
+                        "error": "Document content is empty. Please ensure the uploaded document contains readable text."
+                    }
 
                 answer = self._query_with_simple_prompt(query_text, combined_text)
 
@@ -519,10 +561,20 @@ def get_rag_manager(session_id: str) -> DocumentRAGManager:
     return _rag_managers[session_id]
 
 
+def set_current_session_id(session_id: str) -> None:
+    """Set the current session_id in context for tool calls."""
+    _current_session_id.set(session_id)
+
+
+def get_current_session_id() -> Optional[str]:
+    """Get the current session_id from context."""
+    return _current_session_id.get()
+
+
 # @tool
-def query_documents(query: str, session_id: str) -> str:
+def query_documents(query: str, session_id: Optional[str] = None) -> str:
     """
-    Strands tool: Query uploaded documents for information using RAG with Gemini 2.5 Flash.
+    Query uploaded documents for information using RAG with Gemini 2.5 Flash.
 
     This tool allows you to search through uploaded PDF and document files
     to find relevant information and answer questions based on the document content.
@@ -533,12 +585,22 @@ def query_documents(query: str, session_id: str) -> str:
 
     Args:
         query: The question or search query about the documents
-        session_id: The current chat session ID
+        session_id: The current chat session ID (optional, will be extracted from context if available)
 
     Returns:
         JSON string with the answer from the documents or error message
     """
     import json
+
+    # If session_id not provided, try to get from context
+    if session_id is None:
+        session_id = get_current_session_id()
+
+    if session_id is None:
+        return json.dumps({
+            "error": "No session ID available. Please ensure you are in an active chat session."
+        })
+
     logger.info(
         f"query_documents tool called",
         extra={"extra_data": {
