@@ -3,7 +3,6 @@ import json
 from typing import Optional, Dict, Any
 from google import genai
 from google.genai import types
-from strands import tool
 from ..config import Config
 from ..logging_config import get_logger
 

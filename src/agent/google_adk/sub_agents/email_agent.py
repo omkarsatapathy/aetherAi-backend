@@ -1,5 +1,4 @@
 """Email Reading Agent for Google ADK - Handles email-related tasks."""
-import os
 from typing import Optional, Callable, Any
 from google.adk.agents import LlmAgent
 from ..tools import (
@@ -40,7 +39,7 @@ def create_email_agent(
     # Use pre-wrapped FunctionTools from the tools module
     email_agent = LlmAgent(
         name="EmailAgent",
-        model=os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash-exp"),
+        model=Config.GEMINI_MODEL_ID,
         description=(
             "I am the Email Reading Agent. I specialize in reading and managing Gmail messages. "
             "I can fetch recent emails, check authentication status, and provide email summaries. "

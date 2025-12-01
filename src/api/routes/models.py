@@ -1,6 +1,6 @@
 """Model provider endpoints."""
 from fastapi import APIRouter
-from src.agent.model_providers import ModelProviderFactory
+from src.agent.google_adk import ADKModelProviderFactory
 from src.config import Config
 from src.logging_config import get_logger
 
@@ -12,29 +12,27 @@ router = APIRouter(prefix="/api/models", tags=["models"])
 @router.get("/providers")
 async def get_providers():
     """
-    Get list of available model providers.
+    Get list of available model providers (Google ADK).
 
     Returns:
         Dictionary with available providers and default provider
     """
     try:
-        providers = ModelProviderFactory.get_available_providers()
-
-        # Try to get default provider
-        try:
-            default_provider = ModelProviderFactory.get_default_provider()
-        except RuntimeError:
-            default_provider = None
+        providers = ADKModelProviderFactory.get_available_providers()
+        default_provider = ADKModelProviderFactory.get_default_provider()
+        default_model = ADKModelProviderFactory.get_default_model()
 
         return {
             "providers": providers,
-            "default": default_provider
+            "default": default_provider,
+            "default_model": default_model
         }
     except Exception as e:
         logger.error(f"Error getting providers: {e}", exc_info=True)
         return {
             "providers": [],
             "default": None,
+            "default_model": None,
             "error": str(e)
         }
 

@@ -1,6 +1,6 @@
 """Coordinator Agent for Google ADK - Parent agent that manages all sub-agents.
 
-This module implements the coordinator agent using Google ADK's LlmAgent with 
+This module implements the coordinator agent using Google ADK's LlmAgent with
 sub-agents. It supports streaming via callbacks for real-time updates.
 
 Supports multiple model providers via LiteLLM:
@@ -9,7 +9,6 @@ Supports multiple model providers via LiteLLM:
 - Anthropic: "anthropic/claude-3-5-sonnet-20241022"
 - Ollama: "ollama_chat/llama3.2"
 """
-import os
 from typing import Optional, Callable, Dict, Any, Union
 from google.adk.agents import LlmAgent
 from .sub_agents import (
@@ -111,9 +110,9 @@ def create_coordinator_agent(
             logger.info(f"Using model provider: {model_provider}")
         except ValueError as e:
             logger.warning(f"Model provider '{model_provider}' not available: {e}. Falling back to default Gemini.")
-            model = os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash")
+            model = Config.GEMINI_MODEL_ID
     else:
-        model = os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash")
+        model = Config.GEMINI_MODEL_ID
         logger.info(f"Using default Gemini model: {model}")
 
     # Create the coordinator parent agent (uses datetime_ist_tool from tools module)

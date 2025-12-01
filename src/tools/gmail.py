@@ -10,7 +10,6 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from ..config import Config
 from ..logging_config import get_logger
-from strands import tool
 
 logger = get_logger("chatbot.tools.gmail")
 

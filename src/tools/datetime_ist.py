@@ -1,7 +1,6 @@
 """Tool to get current date and time in IST."""
 from datetime import datetime
 import pytz
-from strands import tool
 import os
 from pathlib import Path
 from dotenv import load_dotenv

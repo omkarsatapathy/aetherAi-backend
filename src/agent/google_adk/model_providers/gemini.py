@@ -37,7 +37,14 @@ class GeminiProvider(ADKBaseModelProvider):
         Args:
             model_id: Gemini model ID to use (default: gemini-2.5-flash)
         """
-        self.model_id = model_id or Config.GEMINI_MODEL_ID or "gemini-2.5-flash"
+        # Get the model ID, defaulting to config or gemini-2.5-flash
+        resolved_model_id = model_id or Config.GEMINI_MODEL_ID or "gemini-2.5-flash"
+
+        # If just "gemini" was passed (without version), use the default configured model
+        if resolved_model_id.lower() == "gemini":
+            resolved_model_id = Config.GEMINI_MODEL_ID or "gemini-2.5-flash"
+
+        self.model_id = resolved_model_id
         self._api_key = Config.GEMINI_API_KEY
 
     def get_model(self) -> str:

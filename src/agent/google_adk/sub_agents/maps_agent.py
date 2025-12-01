@@ -1,5 +1,4 @@
 """Google Maps Agent for Google ADK - Handles location and navigation tasks."""
-import os
 from typing import Optional, Callable
 from google.adk.agents import LlmAgent
 from ..tools import (
@@ -45,7 +44,7 @@ def create_maps_agent(
     # Use pre-wrapped FunctionTools from the tools module
     maps_agent = LlmAgent(
         name="MapsAgent",
-        model=os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash-exp"),
+        model=Config.GEMINI_MODEL_ID,
         description=(
             "I am the Google Maps Agent. I specialize in location-based services, navigation, "
             "and finding places. Use me when users ask about nearby restaurants, directions, "

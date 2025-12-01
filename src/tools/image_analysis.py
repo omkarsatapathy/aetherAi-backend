@@ -4,7 +4,6 @@ import io
 from typing import Optional
 from PIL import Image
 import google.generativeai as genai
-from strands import tool
 from ..config import Config
 from ..logging_config import get_logger
 

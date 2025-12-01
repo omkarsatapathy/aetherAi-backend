@@ -1,5 +1,4 @@
 """Researcher Agent for Google ADK - Handles deep research and formal analysis."""
-import os
 from typing import Optional, Callable
 from google.adk.agents import LlmAgent
 from ..tools import (
@@ -43,7 +42,7 @@ def create_researcher_agent(
     # Use pre-wrapped FunctionTools from the tools module
     researcher_agent = LlmAgent(
         name="ResearcherAgent",
-        model=os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash-exp"),
+        model=Config.GEMINI_MODEL_ID,
         description=(
             "I am the Researcher Agent. I specialize in conducting thorough, multi-source research, "
             "and generating formal, comprehensive reports with analysis, tables, and recommendations. "

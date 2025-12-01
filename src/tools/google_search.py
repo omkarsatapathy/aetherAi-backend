@@ -4,7 +4,6 @@ from typing import Dict, Any, Optional
 from bs4 import BeautifulSoup
 from ..config import Config
 from ..logging_config import get_logger
-from strands import tool
 
 logger = get_logger("chatbot.tools")
 

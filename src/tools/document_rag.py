@@ -13,7 +13,6 @@ from llama_index.core import (
 )
 from llama_index.embeddings.gemini import GeminiEmbedding
 from llama_index.llms.google_genai import GoogleGenAI as Gemini
-from strands import tool
 from ..config import Config
 from ..logging_config import get_logger
 import google.generativeai as genai
@@ -51,7 +50,7 @@ class DocumentRAGManager:
 
         # Get configuration
         self.embedding_model = os.getenv("GEMINI_EMBEDDING_MODEL", "text-embedding-004")
-        self.llm_model = os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash")
+        self.llm_model = Config.GEMINI_MODEL_ID
         self.cache_ttl = int(os.getenv("GEMINI_CACHE_TTL", "600"))  # 10 minutes default
         self.min_cache_tokens = int(os.getenv("GEMINI_MIN_CACHE_TOKENS", "1024"))
 

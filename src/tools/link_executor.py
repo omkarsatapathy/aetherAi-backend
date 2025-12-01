@@ -9,7 +9,6 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
 import re
 from ..logging_config import get_logger
-from strands import tool
 
 logger = get_logger("chatbot.tools.link_executor")
 

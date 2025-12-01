@@ -1,5 +1,4 @@
 """News Reader Agent for Google ADK - Handles news and story briefings."""
-import os
 from typing import Optional, Callable
 from google.adk.agents import LlmAgent
 from ..tools import (
@@ -42,7 +41,7 @@ def create_news_reader_agent(
     # Use pre-wrapped FunctionTools from the tools module
     news_reader_agent = LlmAgent(
         name="NewsReaderAgent",
-        model=os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash-exp"),
+        model=Config.GEMINI_MODEL_ID,
         description=(
             "I am the News Reader Agent. I specialize in reading news, providing morning briefs, "
             "and delivering news in an engaging storytelling format. "
