@@ -130,8 +130,8 @@ async def create_adk_streaming_response(
             parts=[types.Part(text=message)]
         )
 
-        # Send connected event
-        yield f"event: connected\ndata: {json.dumps({'status': 'connected'})}\n\n"
+        # Send connected event with session_id
+        yield f"event: connected\ndata: {json.dumps({'status': 'connected', 'session_id': session_id})}\n\n"
 
         # Send initial thinking event
         yield f"event: thinking\ndata: {json.dumps({'status': 'Thinking...'})}\n\n"
@@ -286,6 +286,7 @@ async def create_adk_streaming_response(
         completion_data = {
             'status': 'Done!' if tool_count == 0 else f'Done! (used {tool_count} tool{"s" if tool_count > 1 else ""})',
             'response': final_response,
+            'session_id': session_id,
             'tool_count': tool_count,
             'cost_inr': cost_data['total_cost_inr'],
             'cost_usd': cost_data['total_cost_usd'],
