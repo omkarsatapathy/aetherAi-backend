@@ -10,6 +10,7 @@ class ChatRequest(BaseModel):
     session_id: Optional[str] = None
     model_provider: Optional[str] = None  # 'llamacpp', 'gemini', or 'openai'
     response_style: Optional[str] = "Normal"  # 'Normal', 'Formal', 'Explanatory', 'Concise', 'Learning'
+    tool: Optional[str] = None  # Explicit tool routing: 'shopping_assist', etc.
 
 
 class SessionCreate(BaseModel):

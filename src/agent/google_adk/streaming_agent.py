@@ -50,7 +50,9 @@ async def create_adk_streaming_response(
     session_id: str = None,
     user_id: str = None,
     model_provider: Optional[str] = None,
-    response_style: Optional[str] = None
+    response_style: Optional[str] = None,
+    tool: Optional[str] = None,
+    preference_responses: Optional[List[Dict]] = None
 ) -> AsyncGenerator[str, None]:
     """
     Create async generator for streaming ADK agent responses with tool execution updates.
@@ -71,6 +73,8 @@ async def create_adk_streaming_response(
             - "anthropic/claude-3-5-sonnet-20241022" (Anthropic via LiteLLM)
             - "ollama_chat/llama3.2" (Ollama via LiteLLM)
         response_style: Response style preference
+        tool: Optional explicit tool routing (e.g., "shopping_assist" for direct shopping mode)
+        preference_responses: List of user preference answers for shopping workflow Phase 2
 
     Yields:
         SSE-formatted strings with event updates
@@ -128,10 +132,57 @@ async def create_adk_streaming_response(
         if style_name != "Normal":
             logger.info(f"🎨 Using response style: {style_name}")
 
+        # Handle preference responses (Phase 2 of shopping workflow)
+        if preference_responses:
+            logger.info(f"📋 Received {len(preference_responses)} preference responses - Phase 2: Product Search")
+            # Format preference responses into a structured message
+            formatted_preferences = []
+            for pref in preference_responses:
+                # Convert Pydantic model to dict if needed
+                if hasattr(pref, 'model_dump'):
+                    pref_dict = pref.model_dump()
+                elif hasattr(pref, 'dict'):
+                    pref_dict = pref.dict()
+                else:
+                    pref_dict = pref
+
+                question = pref_dict.get('question', '')
+                selected = pref_dict.get('options_selected', '')
+                # Handle both string and list selections
+                if isinstance(selected, list):
+                    selected_str = ', '.join(selected)
+                else:
+                    selected_str = str(selected)
+                formatted_preferences.append(f"- {question}: {selected_str}")
+
+            preferences_text = '\n'.join(formatted_preferences)
+            final_message = f"""[SHOPPING PREFERENCES COLLECTED - PHASE 2]
+
+User has answered the preference questions. Here are their preferences:
+{preferences_text}
+
+NEXT ACTION: Immediately delegate to ProductSearchAgent to search for products matching these preferences.
+Then delegate to ProductSummarizationAgent to format the results."""
+
+            # Ensure shopping_assist tool is set for routing
+            if not tool:
+                tool = "shopping_assist"
+
+            logger.info(f"✅ Formatted preferences for product search")
+        else:
+            # Handle conditional routing via tool parameter
+            final_message = message
+            if tool:
+                logger.info(f"🎯 Explicit tool routing requested: {tool}")
+                if tool == "shopping_assist":
+                    # Prepend routing hint to ensure ShoppingAssistAgent is invoked
+                    final_message = f"[USER WANTS TO SHOP/BUY PRODUCTS] {message}"
+                    logger.info(f"🛍️ Routing to ShoppingAssistAgent")
+
         # Create the message content
         content = types.Content(
             role='user',
-            parts=[types.Part(text=message)]
+            parts=[types.Part(text=final_message)]
         )
 
         # Send connected event with session_id

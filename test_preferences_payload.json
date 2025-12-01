@@ -1,0 +1,37 @@
+{
+  "role": "user",
+  "tool": "shopping_assist",
+  "session_id": "test-shopping-phase2",
+  "responses": [
+    {
+      "question": "What's your budget range?",
+      "options_available": ["Under $500", "$500 - $1000", "$1000 - $2000", "Above $2000"],
+      "options_selected": "$500 - $1000"
+    },
+    {
+      "question": "What will be the primary use for your laptop?",
+      "options_available": [
+        "Work/Study (browsing, documents)",
+        "Gaming",
+        "Content Creation (video editing, graphic design)",
+        "General Entertainment (streaming, social media)"
+      ],
+      "options_selected": "Content Creation (video editing, graphic design)"
+    },
+    {
+      "question": "What screen size do you prefer?",
+      "options_available": [
+        "13-14 inch (Portable)",
+        "15-16 inch (Standard)",
+        "17+ inch (Large)",
+        "No preference"
+      ],
+      "options_selected": "15-16 inch (Standard)"
+    },
+    {
+      "question": "Do you have any preferred brands?",
+      "options_available": ["Dell", "HP", "Apple", "Lenovo", "No preference"],
+      "options_selected": ["Dell", "Lenovo"]
+    }
+  ]
+}

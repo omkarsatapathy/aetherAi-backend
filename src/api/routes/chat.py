@@ -14,16 +14,28 @@ logger = get_logger("chatbot.routes.chat")
 router = APIRouter(prefix="/api", tags=["chat"])
 
 
+# Preference response model for shopping workflow
+class PreferenceResponse(BaseModel):
+    """Single preference question response."""
+    question: str
+    options_available: List[str]
+    options_selected: Any  # Can be string or List[str] for multi-select
+
+
 # Add/update the request model to match what Swagger expects
 class ChatStreamRequest(BaseModel):
     """Request model for chat streaming that matches frontend payload."""
-    message: str  # For Swagger UI - simple message
+    message: str = ""  # Optional when responses provided
     session_id: Optional[str] = None
     model_provider: Optional[str] = Config.GEMINI_MODEL_ID
     response_style: Optional[str] = "Normal"
     web_search: bool = False
     conversation_history: List[Dict[str, Any]] = []
-    
+    tool: Optional[str] = None  # Explicit tool routing: 'shopping_assist', etc.
+
+    # Shopping preference responses (Phase 2 trigger)
+    responses: Optional[List[PreferenceResponse]] = None
+
     # Alternative fields for direct message object (from frontend)
     id: Optional[int] = None
     role: Optional[str] = None
@@ -50,9 +62,13 @@ async def chat_stream_post(request: ChatStreamRequest, current_user: dict = Depe
     message = request.content if request.content else request.message
     session_id = request.session_id
 
-    logger.info(f"[ADK] Chat request - Message: {message[:50]}...")
+    logger.info(f"[ADK] Chat request - Message: {message[:50] if message else 'Preference responses'}...")
     logger.info(f"[ADK] Chat request - Model Provider: {request.model_provider}")
     logger.info(f"[ADK] Chat request - User ID: {user_id}")
+    if request.tool:
+        logger.info(f"[ADK] Chat request - Tool: {request.tool}")
+    if request.responses:
+        logger.info(f"[ADK] Chat request - Preference Responses: {len(request.responses)} answers")
 
     return StreamingResponse(
         create_adk_streaming_response(
@@ -61,7 +77,9 @@ async def chat_stream_post(request: ChatStreamRequest, current_user: dict = Depe
             session_id=session_id,
             user_id=user_id,
             model_provider=request.model_provider,
-            response_style=request.response_style
+            response_style=request.response_style,
+            tool=request.tool,
+            preference_responses=request.responses
         ),
         media_type="text/event-stream",
         headers={
@@ -143,8 +161,12 @@ async def chat_test(request: ChatStreamRequest):
     message = request.content if request.content else request.message
     session_id = request.session_id or "test-session"
 
-    logger.info(f"[TEST] Message: {message[:50]}...")
+    logger.info(f"[TEST] Message: {message[:50] if message else 'Preference responses'}...")
     logger.info(f"[TEST] Model Provider: {request.model_provider}")
+    if request.tool:
+        logger.info(f"[TEST] Tool: {request.tool}")
+    if request.responses:
+        logger.info(f"[TEST] Preference Responses: {len(request.responses)} answers")
 
     return StreamingResponse(
         create_adk_streaming_response(
@@ -153,7 +175,9 @@ async def chat_test(request: ChatStreamRequest):
             session_id=session_id,
             user_id="test-user",
             model_provider=request.model_provider,
-            response_style=request.response_style
+            response_style=request.response_style,
+            tool=request.tool,
+            preference_responses=request.responses
         ),
         media_type="text/event-stream",
         headers={

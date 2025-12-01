@@ -15,7 +15,8 @@ from .sub_agents import (
     create_email_agent,
     create_news_reader_agent,
     create_maps_agent,
-    create_researcher_agent
+    create_researcher_agent,
+    create_shopping_assist_agent
 )
 from .callbacks import ADKCallbackHandler, StreamingCallbackContext
 from .tools import datetime_ist_tool, query_documents_tool
@@ -103,6 +104,15 @@ def create_coordinator_agent(
         after_tool_callback=callbacks.get('after_tool_callback'),
     )
 
+    shopping_assist_agent = create_shopping_assist_agent(
+        before_agent_callback=callbacks.get('before_agent_callback'),
+        after_agent_callback=callbacks.get('after_agent_callback'),
+        before_model_callback=callbacks.get('before_model_callback'),
+        after_model_callback=callbacks.get('after_model_callback'),
+        before_tool_callback=callbacks.get('before_tool_callback'),
+        after_tool_callback=callbacks.get('after_tool_callback'),
+    )
+
     # Get the model - supports Gemini (native) and other providers via LiteLLM
     if model_provider:
         try:
@@ -125,14 +135,16 @@ def create_coordinator_agent(
             "- EmailAgent: For reading and managing Gmail messages\n"
             "- NewsReaderAgent: For news updates, morning briefs, weather updates and engaging news delivery\n"
             "- MapsAgent: For locations, directions, traffic, and place recommendations\n"
-            "- ResearcherAgent: For deep research, formal reports, and analytical investigations"
+            "- ResearcherAgent: For deep research, formal reports, and analytical investigations\n"
+            "- ShoppingAssistAgent: For product shopping, buying assistance, and purchase recommendations"
         ),
         # Sub-agents for delegation
         sub_agents=[
             email_agent,
             news_reader_agent,
             maps_agent,
-            researcher_agent
+            researcher_agent,
+            shopping_assist_agent
         ],
         # Coordinator's own tools
         tools=[datetime_ist_tool, query_documents_tool],
@@ -154,7 +166,9 @@ def create_coordinator_agent(
             "   - For LOCATION requests (directions, nearby places, traffic, restaurants, navigation):\n"
             "     → Use transfer_to_agent() to delegate to MapsAgent\n"
             "   - For RESEARCH requests (detailed analysis, formal report, comparison, investigation):\n"
-            "     → Use transfer_to_agent() to delegate to ResearcherAgent\n\n"
+            "     → Use transfer_to_agent() to delegate to ResearcherAgent\n"
+            "   - For SHOPPING requests (buy, purchase, shop, product search, looking to buy, want to buy):\n"
+            "     → Use transfer_to_agent() to delegate to ShoppingAssistAgent\n\n"
 
             "3. DISTINGUISHING NEWS vs RESEARCH:\n"
             "   - NewsReaderAgent: Quick updates, daily briefing, conversational storytelling\n"
