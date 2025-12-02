@@ -1,15 +1,17 @@
 """Message endpoints."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import Optional
 from src.api.models import MessageCreate
 from src.database import DatabaseManager
+from src.services.firestore_service import firestore_service
+from src.middleware.auth_middleware import get_current_user, get_user_id_from_token
 from src.logging_config import get_logger
 
 logger = get_logger("chatbot.routes.messages")
 
 router = APIRouter(prefix="/api/messages", tags=["messages"])
 
-# Database manager will be injected by the app
+# Database manager will be injected by the app (kept for backward compatibility)
 _db_manager: Optional[DatabaseManager] = None
 
 
@@ -20,28 +22,33 @@ def set_db_manager(db_manager: DatabaseManager):
 
 
 @router.post("")
-async def create_message(request: MessageCreate):
+async def create_message(
+    request: MessageCreate,
+    current_user: dict = Depends(get_current_user)
+):
     """
-    Add a message to a session.
+    Add a message to a session (now using Firestore).
 
     Args:
         request: MessageCreate containing session_id, role, and content
+        current_user: Authenticated user from token
 
     Returns:
         Created message information
     """
-    if not _db_manager:
-        raise HTTPException(status_code=500, detail="Database manager not initialized")
+    user_id = get_user_id_from_token(current_user)
 
-    logger.info(f"Adding message to session {request.session_id}: {request.role}")
+    logger.info(f"Adding message to session {request.session_id}: {request.role} (user: {user_id})")
 
     try:
         # Verify session exists
-        session = _db_manager.get_session(request.session_id)
+        session = await firestore_service.get_session(user_id, request.session_id)
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
 
-        message = _db_manager.add_message(
+        # Add message to Firestore
+        message = await firestore_service.add_message(
+            user_id=user_id,
             session_id=request.session_id,
             role=request.role,
             content=request.content
@@ -55,26 +62,30 @@ async def create_message(request: MessageCreate):
 
 
 @router.get("/{session_id}")
-async def get_messages(session_id: str):
+async def get_messages(
+    session_id: str,
+    current_user: dict = Depends(get_current_user)
+):
     """
-    Get all messages for a session.
+    Get all messages for a session (now using Firestore).
 
     Args:
         session_id: Session identifier
+        current_user: Authenticated user from token
 
     Returns:
         List of messages
     """
-    if not _db_manager:
-        raise HTTPException(status_code=500, detail="Database manager not initialized")
+    user_id = get_user_id_from_token(current_user)
 
     try:
         # Verify session exists
-        session = _db_manager.get_session(session_id)
+        session = await firestore_service.get_session(user_id, session_id)
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
 
-        messages = _db_manager.get_messages(session_id)
+        # Get messages from Firestore
+        messages = await firestore_service.get_messages(user_id, session_id)
         return {"messages": messages}
     except HTTPException:
         raise

@@ -36,6 +36,7 @@ from ...config import Config
 from ...logging_config import get_logger
 from ...utils.token_tracker import get_request_tracker, reset_request_tracker
 from ...tools.document_rag import set_current_session_id
+from ...services.firestore_service import firestore_service
 
 logger = get_logger("chatbot.adk_streaming")
 
@@ -375,6 +376,30 @@ Then delegate to ProductSummarizationAgent to format the results."""
         yield f"event: done\ndata: {json.dumps(completion_data)}\n\n"
         logger.info(f"✅ ADK Streaming completed. Tools used: {tool_count}")
         logger.info(f"📝 Response: {complete_response[:200]}...")
+
+        # Save messages to Firestore after streaming completes
+        try:
+            if user_id and session_id:
+                # Save user message
+                await firestore_service.add_message(
+                    user_id=user_id,
+                    session_id=session_id,
+                    role='user',
+                    content=message
+                )
+                logger.info(f"💾 Saved user message to Firestore (session: {session_id})")
+
+                # Save assistant response
+                await firestore_service.add_message(
+                    user_id=user_id,
+                    session_id=session_id,
+                    role='assistant',
+                    content=final_response
+                )
+                logger.info(f"💾 Saved assistant response to Firestore (session: {session_id})")
+        except Exception as save_error:
+            logger.error(f"Failed to save messages to Firestore: {save_error}", exc_info=True)
+            # Don't fail the entire request if message saving fails
 
     except Exception as e:
         logger.error(f"ADK Streaming error: {str(e)}", exc_info=True)
