@@ -9,7 +9,9 @@ from ..tools import (
     google_search_tool,
     fetch_url_content_tool,
     fetch_multiple_urls_tool,
-    datetime_ist_tool
+    datetime_ist_tool,
+    extract_product_image_tool,
+    extract_product_images_batch_tool,
 )
 from ....config import Config
 from ....logging_config import get_logger
@@ -56,7 +58,9 @@ def create_product_search_agent(
             google_search_tool,
             fetch_url_content_tool,
             fetch_multiple_urls_tool,
-            datetime_ist_tool
+            datetime_ist_tool,
+            extract_product_image_tool,
+            extract_product_images_batch_tool,
         ],
         instruction=Config.get_product_search_agent_prompt(),
         # Agent Lifecycle Callbacks

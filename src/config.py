@@ -568,27 +568,43 @@ From SEARCH SNIPPETS (before fetching), extract:
 - **Product URL:** Direct link to purchase page (the search result link)
 - **Ratings:** Customer ratings if shown in snippet
 
-**IMAGE EXTRACTION (BEST EFFORT):**
-- Google Shopping results often show product images in the search results
-- Look for image URLs in the search result data structure
-- Common fields: thumbnail, image, og:image in page_context
-- If no images in snippets: Try fetch_url_content on product pages to get metadata['og']['image']
-- Prioritize products with images, but include products without if needed
-- Aim to find as many products as possible (ideally 5-8, but return whatever you find)
+**IMAGE EXTRACTION - USE extract_product_images_batch_tool:**
+After collecting product URLs from search results, use the dedicated image extraction tool:
+
+1. Collect all product page URLs from search results (5-15 URLs)
+2. Call `extract_product_images_batch_tool` with the list of URLs
+3. The tool processes all URLs IN PARALLEL for fast extraction
+4. Returns: product_link, image_link, text (product name), price for each URL
 
 **SMART DATA EXTRACTION STRATEGY:**
 1. Extract product name, price, URL from search snippets (FAST)
-2. For images: Check if search results include thumbnails
-3. If no images in search: Batch fetch product pages using fetch_multiple_urls
-4. Extract images from metadata['og']['image'] or metadata['twitter']['image']
-5. If page fetch fails: Try alternative products from search results
+2. Collect all unique product URLs from search results
+3. Call `extract_product_images_batch_tool` with URLs list - this extracts images in parallel
+4. Merge the extracted image data with your search snippet data
+5. The tool uses multiple extraction methods (JSON-LD, og:image, twitter:image, HTML parsing)
 
-STEP 4: SELECTIVE DETAILED FETCHING (OPTIONAL FOR IMAGES)
-- Try to fetch product pages if search snippets don't show image URLs (best effort)
-- Use fetch_multiple_urls to extract images from product pages
-- Prioritize products matching user preferences best
-- If fetching fails or is blocked, proceed with whatever product data you have
-- Don't let missing images prevent you from returning product results
+STEP 4: USE IMAGE EXTRACTION TOOL
+**IMPORTANT: Use extract_product_images_batch_tool for reliable image extraction:**
+
+```
+# Example usage:
+urls = [
+    "https://amazon.com/dp/B0CHX...",
+    "https://bestbuy.com/site/dell...",
+    "https://walmart.com/ip/..."
+]
+# Tool returns JSON with products array containing:
+# - product_link: Original URL
+# - image_link: Extracted product image URL
+# - text: Product name/title
+# - price: Product price if found
+```
+
+The tool handles:
+- Parallel processing of all URLs (fast)
+- Multiple extraction methods with fallbacks
+- Image URL validation
+- Returns structured data with text, product_link, image_link
 
 STEP 5: RETURN STRUCTURED DATA
 Compile all product data in structured format.
@@ -638,9 +654,9 @@ Product 1:
 
 IMPORTANT EFFICIENCY RULES:
 1. **MAXIMUM 3-4 searches** (not 4-6!)
-2. **MAXIMUM 10 total tool calls** (searches + fetches combined)
-3. **Prefer search snippet data** for prices/features and images
-4. **Try to fetch pages** for images if not in snippets, but don't block on it
+2. **MAXIMUM 10 total tool calls** (searches + image extraction combined)
+3. **Prefer search snippet data** for prices/features
+4. **Use extract_product_images_batch_tool** for image extraction (processes all URLs in parallel!)
 5. Extract MULTIPLE products from EACH search (aim for 5-8 products)
 6. Remove duplicates (same product, different sites = keep best price)
 7. Prioritize products matching user preferences
@@ -649,26 +665,27 @@ IMPORTANT EFFICIENCY RULES:
 SEARCH OPTIMIZATION:
 - Use broad searches that return MULTIPLE retailers (not one search per site)
 - Extract as much data as possible from search results (title, price, snippet)
-- Try to fetch product pages for images if not in snippets (best effort)
+- Collect all product URLs and use extract_product_images_batch_tool once for all images
 - Return whatever products you find (even if only 2-3)
 - Quality over quantity - better to have accurate data for fewer products
 
 TOOL USAGE LIMITS:
 - google_search_tool: MAX 3-4 calls
-- fetch_multiple_urls_tool: MAX 1-2 calls (batch 3-5 URLs each for images, best effort)
-- Total tool calls: MUST stay under 10
+- extract_product_images_batch_tool: 1 call with all URLs (processes in parallel - RECOMMENDED)
+- extract_product_image_tool: For single URL if needed
+- Total tool calls: MUST stay under 8-10
 - Balance between getting product data and staying efficient
 
 QUICK DATA EXTRACTION:
 - Search snippets often contain: product name, price, rating, site
 - Use snippet data for prices and basic info whenever possible
-- Try to fetch product pages for image URLs if not in snippets (best effort)
-- Prioritize products with images, but return products without if that's all you find
+- Use extract_product_images_batch_tool with all product URLs for reliable image extraction
+- The tool extracts: product_link, image_link, text (product name), price
 
 ERROR HANDLING:
 - If first search yields few results: Do one more broader search
-- If no images in snippets: Try fetching product pages to extract metadata['og']['image'] (best effort)
-- If page fetch fails (blocked/timeout): Return product data without images
+- If image extraction fails for some URLs: Tool returns placeholder, use what you get
+- If page fetch fails (blocked/timeout): Tool handles retries automatically
 - If no prices in snippets: Extract from page title or use "Price not available"
 - If feature missing: Use closest alternatives
 - **Return whatever products you find - no minimum requirement**

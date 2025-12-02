@@ -19,6 +19,7 @@ from ....tools.google_maps import (
 from ....tools.document_rag import query_documents
 from ....tools.link_executor import fetch_url_content, fetch_multiple_urls
 from ....tools.datetime_ist import get_current_datetime_ist
+from ....tools.product_image_extractor import extract_product_image, extract_product_images_batch
 
 
 # ====================
@@ -64,6 +65,13 @@ datetime_ist_tool = FunctionTool(func=get_current_datetime_ist)
 
 
 # ====================
+# Product Image Extraction Tools
+# ====================
+extract_product_image_tool = FunctionTool(func=extract_product_image)
+extract_product_images_batch_tool = FunctionTool(func=extract_product_images_batch)
+
+
+# ====================
 # Image Analysis Tools
 # ====================
 image_analysis_tool = FunctionTool(func=analyze_image)
@@ -89,6 +97,9 @@ __all__ = [
     'query_documents_tool',
     # Utility
     'datetime_ist_tool',
-    # Image
+    # Product Image Extraction
+    'extract_product_image_tool',
+    'extract_product_images_batch_tool',
+    # Image Analysis
     'image_analysis_tool',
 ]

@@ -21,6 +21,9 @@ from .build_adk_tools import (
     query_documents_tool,
     # Utility tools
     datetime_ist_tool,
+    # Product Image Extraction tools
+    extract_product_image_tool,
+    extract_product_images_batch_tool,
     # Image tools
     image_analysis_tool,
 )
@@ -44,6 +47,9 @@ __all__ = [
     'query_documents_tool',
     # Utility
     'datetime_ist_tool',
+    # Product Image Extraction
+    'extract_product_image_tool',
+    'extract_product_images_batch_tool',
     # Image
     'image_analysis_tool',
 ]
