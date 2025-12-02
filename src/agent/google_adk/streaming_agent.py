@@ -190,6 +190,81 @@ Then delegate to ProductSummarizationAgent to format the results."""
         # Send connected event with session_id
         yield f"event: connected\ndata: {json.dumps({'status': 'connected', 'session_id': session_id})}\n\n"
 
+        # Generate session description for first message
+        # Check if this is the first message by looking at conversation_history length
+        # The frontend sends the current message in history, so we check if it's <= 1
+        is_first_message = len(conversation_history) <= 1
+
+        if is_first_message:
+            logger.info(f"📝 Generating session description for first message")
+            try:
+                # Generate a short 3-5 word description using a simple LLM call
+                description_prompt = f"""Generate a very short, concise title (3-5 words maximum) for a chat session based on this user message: "{message}"
+
+Examples:
+User: "What's the weather like today?"
+Answer: Weather inquiry
+
+User: "Help me find a good laptop under $1000"
+Answer: Laptop shopping
+
+User: "Explain quantum physics to me"
+Answer: Quantum physics explanation
+
+Now generate ONLY the title for: "{message}"
+Answer:"""
+
+                # Use the model to generate description (run in executor to avoid blocking)
+                from google import genai
+
+                def generate_title_sync():
+                    client = genai.Client(api_key=Config.GEMINI_API_KEY)
+                    response = client.models.generate_content(
+                        model=Config.GEMINI_MODEL_ID,
+                        contents=description_prompt
+                    )
+                    return response
+
+                # Run the sync call in a thread pool to avoid blocking
+                loop = asyncio.get_running_loop()
+                description_response = await loop.run_in_executor(None, generate_title_sync)
+
+                session_description = description_response.text.strip().strip('"').strip("'")
+
+                # Remove common prefixes like "Title:", "Answer:", etc.
+                for prefix in ["Title:", "Answer:", "Response:", "Chat:"]:
+                    if session_description.startswith(prefix):
+                        session_description = session_description[len(prefix):].strip()
+                        break
+
+                # Ensure it's not too long
+                if len(session_description.split()) > 5:
+                    session_description = ' '.join(session_description.split()[:5])
+
+                logger.info(f"✅ Generated session description: {session_description}")
+
+                # Send session description event as first stream
+                yield f"event: session_description\ndata: {json.dumps({'description': session_description, 'session_id': session_id})}\n\n"
+
+                # Update session title in Firestore immediately
+                if user_id and session_id:
+                    try:
+                        success = await firestore_service.update_session_title(
+                            user_id=user_id,
+                            session_id=session_id,
+                            title=session_description
+                        )
+                        if success:
+                            logger.info(f"✅ Updated session title in Firestore: {session_description}")
+                        else:
+                            logger.warning(f"⚠️ Failed to update session title in Firestore")
+                    except Exception as title_error:
+                        logger.error(f"Error updating session title: {title_error}")
+            except Exception as e:
+                logger.error(f"Failed to generate session description: {e}")
+                # Continue without description
+                pass
+
         # Send initial thinking event
         yield f"event: thinking\ndata: {json.dumps({'status': 'Thinking...'})}\n\n"
 
@@ -398,21 +473,8 @@ Then delegate to ProductSummarizationAgent to format the results."""
                     )
                     logger.info(f"💾 Saved assistant response to Firestore (session: {session_id})")
 
-                    # Auto-update session title if this is the first message (conversation_history was empty)
-                    if len(conversation_history) == 0:
-                        # Generate title from user message (first 30 chars)
-                        max_length = 30
-                        title = message if len(message) <= max_length else message[:max_length] + '...'
-
-                        success = await firestore_service.update_session_title(
-                            user_id=user_id,
-                            session_id=session_id,
-                            title=title
-                        )
-                        if success:
-                            logger.info(f"📝 Auto-updated session title: {title}")
-                        else:
-                            logger.warning(f"⚠️ Failed to auto-update session title")
+                    # Session title is now updated at the beginning of the conversation
+                    # (See session_description event generation above)
             except Exception as save_error:
                 logger.error(f"Failed to save messages to Firestore: {save_error}", exc_info=True)
 
