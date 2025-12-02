@@ -37,6 +37,7 @@ from ...logging_config import get_logger
 from ...utils.token_tracker import get_request_tracker, reset_request_tracker
 from ...tools.document_rag import set_current_session_id
 from ...services.firestore_service import firestore_service
+import asyncio
 
 logger = get_logger("chatbot.adk_streaming")
 
@@ -373,33 +374,55 @@ Then delegate to ProductSummarizationAgent to format the results."""
             completion_data['question'] = question_data
             logger.info(f"✅ Added 'question' field to completion data")
 
+        # Save messages to Firestore in background (non-blocking)
+        # This happens BEFORE sending the done event so it doesn't block the response
+        async def save_messages_background():
+            """Background task to save messages without blocking the response."""
+            try:
+                if user_id and session_id:
+                    # Save user message
+                    await firestore_service.add_message(
+                        user_id=user_id,
+                        session_id=session_id,
+                        role='user',
+                        content=message
+                    )
+                    logger.info(f"💾 Saved user message to Firestore (session: {session_id})")
+
+                    # Save assistant response
+                    await firestore_service.add_message(
+                        user_id=user_id,
+                        session_id=session_id,
+                        role='assistant',
+                        content=final_response
+                    )
+                    logger.info(f"💾 Saved assistant response to Firestore (session: {session_id})")
+
+                    # Auto-update session title if this is the first message (conversation_history was empty)
+                    if len(conversation_history) == 0:
+                        # Generate title from user message (first 30 chars)
+                        max_length = 30
+                        title = message if len(message) <= max_length else message[:max_length] + '...'
+
+                        success = await firestore_service.update_session_title(
+                            user_id=user_id,
+                            session_id=session_id,
+                            title=title
+                        )
+                        if success:
+                            logger.info(f"📝 Auto-updated session title: {title}")
+                        else:
+                            logger.warning(f"⚠️ Failed to auto-update session title")
+            except Exception as save_error:
+                logger.error(f"Failed to save messages to Firestore: {save_error}", exc_info=True)
+
+        # Create background task (fire and forget)
+        asyncio.create_task(save_messages_background())
+
+        # Send done event immediately without waiting for save
         yield f"event: done\ndata: {json.dumps(completion_data)}\n\n"
         logger.info(f"✅ ADK Streaming completed. Tools used: {tool_count}")
         logger.info(f"📝 Response: {complete_response[:200]}...")
-
-        # Save messages to Firestore after streaming completes
-        try:
-            if user_id and session_id:
-                # Save user message
-                await firestore_service.add_message(
-                    user_id=user_id,
-                    session_id=session_id,
-                    role='user',
-                    content=message
-                )
-                logger.info(f"💾 Saved user message to Firestore (session: {session_id})")
-
-                # Save assistant response
-                await firestore_service.add_message(
-                    user_id=user_id,
-                    session_id=session_id,
-                    role='assistant',
-                    content=final_response
-                )
-                logger.info(f"💾 Saved assistant response to Firestore (session: {session_id})")
-        except Exception as save_error:
-            logger.error(f"Failed to save messages to Firestore: {save_error}", exc_info=True)
-            # Don't fail the entire request if message saving fails
 
     except Exception as e:
         logger.error(f"ADK Streaming error: {str(e)}", exc_info=True)
