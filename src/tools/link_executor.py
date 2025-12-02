@@ -4,10 +4,11 @@ This tool fetches URL content, extracts metadata, and parses page content
 with comprehensive error handling and fallback mechanisms.
 """
 import requests
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from ..logging_config import get_logger
 
 logger = get_logger("chatbot.tools.link_executor")
@@ -31,6 +32,92 @@ def _get_headers(user_agent_index: int = 0) -> Dict[str, str]:
         'Connection': 'keep-alive',
         'Upgrade-Insecure-Requests': '1',
     }
+
+
+def _is_valid_image_url(url: str) -> bool:
+    """
+    Validate a single image URL.
+
+    Checks if:
+    1. URL returns HTTP 200
+    2. Content-Type is image/jpeg, image/jpg, image/png, or image/webp
+    3. First bytes match JPEG, PNG, or WebP signature
+
+    Args:
+        url: Image URL to validate
+
+    Returns:
+        bool: True if valid image, False otherwise
+    """
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        response = requests.get(url, headers=headers, timeout=5, stream=True)
+
+        if response.status_code != 200:
+            logger.debug(f"Invalid image status code {response.status_code} for URL: {url}")
+            return False
+
+        content_type = response.headers.get('content-type', '').lower()
+        if not any(img_type in content_type for img_type in ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']):
+            logger.debug(f"Invalid image content type '{content_type}' for URL: {url}")
+            return False
+
+        chunk = next(response.iter_content(1024), None)
+        if not chunk:
+            logger.debug(f"Empty image content for URL: {url}")
+            return False
+
+        # Check for JPEG, PNG, or WebP signatures
+        if not (chunk.startswith(b'\xff\xd8') or chunk.startswith(b'\x89PNG') or chunk.startswith(b'RIFF')):
+            logger.debug(f"Invalid image signature for URL: {url}")
+            return False
+
+        response.close()
+        logger.debug(f"✓ Valid image URL: {url}")
+        return True
+    except Exception as e:
+        logger.debug(f"Error validating image URL {url}: {str(e)}")
+        return False
+
+
+def _validate_image_urls_parallel(image_urls: List[str], max_workers: int = 10) -> Dict[str, bool]:
+    """
+    Validate multiple image URLs in parallel using multi-threading.
+
+    Args:
+        image_urls: List of image URLs to validate
+        max_workers: Maximum number of parallel threads (default: 10)
+
+    Returns:
+        Dict mapping each URL to its validation status (True/False)
+    """
+    if not image_urls:
+        return {}
+
+    logger.info(f"Validating {len(image_urls)} image URLs in parallel")
+
+    results = {}
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all validation tasks
+        future_to_url = {executor.submit(_is_valid_image_url, url): url for url in image_urls}
+
+        # Collect results as they complete
+        for future in as_completed(future_to_url):
+            url = future_to_url[future]
+            try:
+                is_valid = future.result()
+                results[url] = is_valid
+                if not is_valid:
+                    logger.warning(f"✗ Invalid image URL: {url}")
+            except Exception as e:
+                logger.error(f"Exception validating image {url}: {str(e)}")
+                results[url] = False
+
+    valid_count = sum(1 for v in results.values() if v)
+    logger.info(f"Image validation complete: {valid_count}/{len(image_urls)} URLs are valid")
+
+    return results
 
 
 def _extract_metadata(soup: BeautifulSoup, url: str) -> Dict[str, Any]:
@@ -66,7 +153,13 @@ def _extract_metadata(soup: BeautifulSoup, url: str) -> Dict[str, Any]:
 
     og_image = soup.find('meta', property='og:image')
     if og_image and og_image.get('content'):
-        metadata['og']['image'] = og_image['content']
+        image_url = og_image['content']
+        # Validate the image URL before storing it
+        if _is_valid_image_url(image_url):
+            metadata['og']['image'] = image_url
+            logger.debug(f"✓ Valid og:image URL: {image_url}")
+        else:
+            logger.warning(f"✗ Invalid og:image URL, skipping: {image_url}")
 
     og_site_name = soup.find('meta', property='og:site_name')
     if og_site_name and og_site_name.get('content'):
@@ -87,7 +180,13 @@ def _extract_metadata(soup: BeautifulSoup, url: str) -> Dict[str, Any]:
 
     twitter_image = soup.find('meta', attrs={'name': 'twitter:image'})
     if twitter_image and twitter_image.get('content'):
-        metadata['twitter']['image'] = twitter_image['content']
+        image_url = twitter_image['content']
+        # Validate the image URL before storing it
+        if _is_valid_image_url(image_url):
+            metadata['twitter']['image'] = image_url
+            logger.debug(f"✓ Valid twitter:image URL: {image_url}")
+        else:
+            logger.warning(f"✗ Invalid twitter:image URL, skipping: {image_url}")
 
     # Standard meta description
     description = soup.find('meta', attrs={'name': 'description'})

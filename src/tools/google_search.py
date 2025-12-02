@@ -1,5 +1,7 @@
 """Custom Strands tools for the chatbot agent."""
 import requests
+import time
+import random
 from typing import Dict, Any, Optional
 from bs4 import BeautifulSoup
 from ..config import Config
@@ -30,79 +32,94 @@ def google_search_with_context(query: str) -> str:
     )
 
     api_url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={search_engine_id}"
-
-    try:
-        logger.debug(
-            f"Sending request to Google Custom Search API",
-            extra={"extra_data": {"api_url": api_url.replace(api_key, "***")}}
-        )
-
-        response = requests.get(api_url, params={
-            'q': query,
-            'num': 3  # top_k = 1
-        })
-
-        logger.debug(
-            f"Received response from Google API",
-            extra={"extra_data": {"status_code": response.status_code}}
-        )
-
-        response.raise_for_status()
+    # api_url = f"https://www.googleapis.com/customsearch/v1?key=AIzaSyAWKPHNwV6hCPE4lG1p9_hfhxl9PlhRO7s&cx=90017f76b038541bd"
     
-        data = response.json()
+    max_retries = 3
+    backoff_factor = 2
 
-        logger.debug(
-            f"Raw API response",
-            extra={"extra_data": {"response_keys": list(data.keys())}}
-        )
+    for attempt in range(max_retries):
+        try:
+            logger.debug(
+                f"Sending request to Google Custom Search API (Attempt {attempt + 1}/{max_retries})",
+                extra={"extra_data": {"api_url": api_url.replace(api_key, "***")}}
+            )
 
-        if 'items' in data and len(data['items']) > 0:
-            item = data['items'][0]  # Get only the top result
-
-            result = {
-                'title': item.get('title', ''),
-                'link': item.get('link', ''),
-                'snippet': item.get('snippet', ''),
-                'displayLink': item.get('displayLink', ''),
-                'formattedUrl': item.get('formattedUrl', '')
-            }
-
-            # Fetch full page context
-            page_context = _fetch_page_context(result['link'])
-            result['page_context'] = page_context
+            response = requests.get(api_url, params={
+                'q': query,
+                'num': 3  # top_k = 1
+            })
 
             logger.debug(
-                f"Processed top search result",
-                extra={"extra_data": {"title": result['title'], "link": result['link'], "context_length": len(page_context)}}
+                f"Received response from Google API",
+                extra={"extra_data": {"status_code": response.status_code}}
             )
 
-            logger.info(
-                f"Google web search with context completed",
-                extra={"extra_data": {"query": query, "url": result['link']}}
+            response.raise_for_status()
+        
+            data = response.json()
+
+            logger.debug(
+                f"Raw API response",
+                extra={"extra_data": {"response_keys": list(data.keys())}}
             )
 
-            return json.dumps(result, ensure_ascii=False)
-        else:
-            logger.warning(
-                f"No search results found",
-                extra={"extra_data": {"query": query}}
-            )
-            return json.dumps({"error": "No search results found"})
+            if 'items' in data and len(data['items']) > 0:
+                item = data['items'][0]  # Get only the top result
 
-    except requests.exceptions.HTTPError as e:
-        logger.error(
-            f"HTTP error during Google search",
-            extra={"extra_data": {"status_code": e.response.status_code, "query": query}},
-            exc_info=True
-        )
-        return json.dumps({"error": f"Search failed with HTTP {e.response.status_code}: {str(e)}"})
-    except Exception as e:
-        logger.error(
-            f"Unexpected error during Google search",
-            extra={"extra_data": {"query": query, "error": str(e)}},
-            exc_info=True
-        )
-        return json.dumps({"error": f"Search failed: {str(e)}"})
+                result = {
+                    'title': item.get('title', ''),
+                    'link': item.get('link', ''),
+                    'snippet': item.get('snippet', ''),
+                    'displayLink': item.get('displayLink', ''),
+                    'formattedUrl': item.get('formattedUrl', '')
+                }
+
+                # Fetch full page context
+                page_context = _fetch_page_context(result['link'])
+                result['page_context'] = page_context
+
+                logger.debug(
+                    f"Processed top search result",
+                    extra={"extra_data": {"title": result['title'], "link": result['link'], "context_length": len(page_context)}}
+                )
+
+                logger.info(
+                    f"Google web search with context completed",
+                    extra={"extra_data": {"query": query, "url": result['link']}}
+                )
+
+                return json.dumps(result, ensure_ascii=False)
+            else:
+                logger.warning(
+                    f"No search results found",
+                    extra={"extra_data": {"query": query}}
+                )
+                return json.dumps({"error": "No search results found"})
+
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 429 and attempt < max_retries - 1:
+                sleep_time = (backoff_factor ** attempt) + (random.uniform(0, 1))
+                logger.warning(
+                    f"HTTP 429 Too Many Requests. Retrying in {sleep_time:.2f} seconds...",
+                    extra={"extra_data": {"query": query, "attempt": attempt + 1}}
+                )
+                time.sleep(sleep_time)
+            else:
+                logger.error(
+                    f"HTTP error during Google search after {attempt + 1} attempts",
+                    extra={"extra_data": {"status_code": e.response.status_code, "query": query}},
+                    exc_info=True
+                )
+                return json.dumps({"error": f"Search failed with HTTP {e.response.status_code}: {str(e)}"})
+        except Exception as e:
+            logger.error(
+                f"Unexpected error during Google search",
+                extra={"extra_data": {"query": query, "error": str(e)}},
+                exc_info=True
+            )
+            return json.dumps({"error": f"Search failed: {str(e)}"})
+
+    return json.dumps({"error": "Search failed after multiple retries."})
 
 
 def _fetch_page_context(url: str, max_chars: int = 5000) -> str:

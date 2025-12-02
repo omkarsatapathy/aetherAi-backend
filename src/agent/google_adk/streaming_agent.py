@@ -193,9 +193,9 @@ Then delegate to ProductSummarizationAgent to format the results."""
 
         # Map tool names to display names with emojis
         tool_display_names = {
-            'calculator': '🧮 Calculating',
-            'google_search_with_context': '🌐 Searching the web',
-            'get_current_datetime_ist': '🕐 Getting current time',
+            # 'calculator': '🧮 Calculating',
+            'google_search_with_context': 'Searching the web',
+            # 'get_current_datetime_ist': '🕐 Getting current time',
             'query_documents': '📄 Analyzing documents',
             'fetch_gmail_messages': '📧 Fetching news from emails',
             'gmail_auth_status': '🔐 Checking Gmail auth status',
@@ -337,6 +337,21 @@ Then delegate to ProductSummarizationAgent to format the results."""
             logger.info(f"📍 Appending maps widget metadata from context")
             final_response += f"\n\n<!--MAPS_WIDGET:{json.dumps(streaming_context.maps_widget_data)}-->"
 
+        # Check if response contains questions JSON (shopping preference agent)
+        question_data = None
+        try:
+            # Look for JSON code blocks with questions
+            import re
+            json_match = re.search(r'```json\s*(\{.*?"questions".*?\})\s*```', final_response, re.DOTALL)
+            if json_match:
+                potential_json = json_match.group(1)
+                parsed_json = json.loads(potential_json)
+                if 'questions' in parsed_json:
+                    question_data = parsed_json
+                    logger.info(f"📋 Detected questions JSON in response")
+        except (json.JSONDecodeError, AttributeError) as e:
+            logger.debug(f"No questions JSON found in response: {e}")
+
         # Send completion event with full response and cost
         completion_data = {
             'status': 'Done!' if tool_count == 0 else f'Done! (used {tool_count} tool{"s" if tool_count > 1 else ""})',
@@ -351,6 +366,12 @@ Then delegate to ProductSummarizationAgent to format the results."""
                 'total': cost_data['total_tokens']
             }
         }
+
+        # Add question field if questions were detected
+        if question_data:
+            completion_data['question'] = question_data
+            logger.info(f"✅ Added 'question' field to completion data")
+
         yield f"event: done\ndata: {json.dumps(completion_data)}\n\n"
         logger.info(f"✅ ADK Streaming completed. Tools used: {tool_count}")
         logger.info(f"📝 Response: {complete_response[:200]}...")
