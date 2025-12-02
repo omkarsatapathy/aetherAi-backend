@@ -38,12 +38,12 @@ class ADKModelProviderFactory:
     _provider_prefixes = {
         "gemini": GeminiProvider,
         "openai": OpenAIProvider,
-        "anthropic": AnthropicProvider,
+        # "anthropic": AnthropicProvider,
         "anthropic-vertex": AnthropicVertexProvider,  # Claude via Google Cloud Vertex AI
         "vertex-anthropic": AnthropicVertexProvider,  # Alias
-        "ollama_chat": OllamaProvider,
-        "ollama": OllamaProvider,  # Redirect to ollama_chat
-        "llamacpp": LlamaCppProvider,
+        # "ollama_chat": OllamaProvider,
+        # "ollama": OllamaProvider,  # Redirect to ollama_chat
+        # "llamacpp": LlamaCppProvider,
     }
     
     # Default models for each provider
@@ -53,9 +53,9 @@ class ADKModelProviderFactory:
         "anthropic": "anthropic/claude-3-5-sonnet-20241022",
         "anthropic-vertex": "anthropic-vertex/claude-sonnet-4@20250514",
         "vertex-anthropic": "anthropic-vertex/claude-sonnet-4@20250514",
-        "ollama_chat": "ollama_chat/llama3.2",
-        "ollama": "ollama_chat/llama3.2",
-        "llamacpp": "openai/local-model",
+        # "ollama_chat": "ollama_chat/llama3.2",
+        # "ollama": "ollama_chat/llama3.2",
+        # "llamacpp": "openai/local-model",
     }
 
     @classmethod
@@ -199,11 +199,11 @@ class ADKModelProviderFactory:
         
         provider_display_names = {
             "gemini": "Google Gemini",
-            "openai": "OpenAI",
-            "anthropic": "Anthropic Claude (Direct API)",
-            "anthropic-vertex": "Anthropic Claude (Vertex AI)",
-            "ollama_chat": "Ollama (Local)",
-            "llamacpp": "LlamaCpp (Local)",
+            "openai": "OpenAI (Direct API)",
+            # "anthropic": "Anthropic Claude (Direct API)",
+            "anthropic-vertex": "Anthropic Claude",
+            # "ollama_chat": "Ollama (Local)",
+            # "llamacpp": "LlamaCpp (Local)",
         }
 
         for name, provider_class in cls._provider_prefixes.items():

@@ -451,8 +451,12 @@ Answer:"""
 
         # Save messages to Firestore in background (non-blocking)
         # This happens BEFORE sending the done event so it doesn't block the response
-        async def save_messages_background():
-            """Background task to save messages without blocking the response."""
+        async def save_messages_background(has_questions: bool = False):
+            """Background task to save messages without blocking the response.
+
+            Args:
+                has_questions: If True, skips saving assistant message (preference questions)
+            """
             try:
                 if user_id and session_id:
                     # Save user message
@@ -464,14 +468,17 @@ Answer:"""
                     )
                     logger.info(f"💾 Saved user message to Firestore (session: {session_id})")
 
-                    # Save assistant response
-                    await firestore_service.add_message(
-                        user_id=user_id,
-                        session_id=session_id,
-                        role='assistant',
-                        content=final_response
-                    )
-                    logger.info(f"💾 Saved assistant response to Firestore (session: {session_id})")
+                    # Save assistant response (skip if it contains preference questions)
+                    if has_questions:
+                        logger.info(f"⏭️ Skipping assistant message save - contains preference questions (session: {session_id})")
+                    else:
+                        await firestore_service.add_message(
+                            user_id=user_id,
+                            session_id=session_id,
+                            role='assistant',
+                            content=final_response
+                        )
+                        logger.info(f"💾 Saved assistant response to Firestore (session: {session_id})")
 
                     # Session title is now updated at the beginning of the conversation
                     # (See session_description event generation above)
@@ -479,7 +486,8 @@ Answer:"""
                 logger.error(f"Failed to save messages to Firestore: {save_error}", exc_info=True)
 
         # Create background task (fire and forget)
-        asyncio.create_task(save_messages_background())
+        # Pass question_data existence to skip saving preference questions
+        asyncio.create_task(save_messages_background(has_questions=bool(question_data)))
 
         # Send done event immediately without waiting for save
         yield f"event: done\ndata: {json.dumps(completion_data)}\n\n"
