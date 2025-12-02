@@ -136,7 +136,8 @@ async def update_session(
     logger.info(f"Updating session {session_id} with title: {request.title}")
 
     try:
-        success = await firestore_service.update_session_title(user_id, session_id, request.title)
+        # Use force=True for manual user edits via API
+        success = await firestore_service.update_session_title(user_id, session_id, request.title, force=True)
         if not success:
             raise HTTPException(status_code=404, detail="Session not found")
 

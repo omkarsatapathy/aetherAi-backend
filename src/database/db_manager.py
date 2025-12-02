@@ -4,6 +4,9 @@ from datetime import datetime
 from typing import List, Dict, Optional
 from pathlib import Path
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 class DatabaseManager:
     """Manages SQLite database for chat sessions and messages."""
@@ -157,16 +160,57 @@ class DatabaseManager:
 
             return [dict(row) for row in rows]
 
-    def update_session_title(self, session_id: str, title: str) -> bool:
-        """Update session title."""
+    def update_session_title(self, session_id: str, title: str, force: bool = False) -> bool:
+        """
+        Update session title only if current title is "New Chat" (unless force=True).
+        This prevents overwriting user-modified titles.
+
+        Args:
+            session_id: Session ID
+            title: New title
+            force: If True, update title regardless of current value (for manual user edits)
+
+        Returns:
+            Success status
+        """
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
+
+            # First, check current title
             cursor.execute(
-                "UPDATE sessions SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?",
-                (title, session_id)
+                "SELECT title FROM sessions WHERE session_id = ?",
+                (session_id,)
             )
-            conn.commit()
-            return cursor.rowcount > 0
+            result = cursor.fetchone()
+
+            if not result:
+                logger.warning(f"Session {session_id} not found for title update")
+                return False
+
+            current_title = result[0]
+
+            # If force=True (manual user edit), always update
+            if force:
+                cursor.execute(
+                    "UPDATE sessions SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?",
+                    (title, session_id)
+                )
+                conn.commit()
+                logger.info(f"✅ Session {session_id} title forcefully updated to '{title}' (manual edit)")
+                return cursor.rowcount > 0
+
+            # Otherwise, only update if current title is "New Chat"
+            if current_title == "New Chat":
+                cursor.execute(
+                    "UPDATE sessions SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?",
+                    (title, session_id)
+                )
+                conn.commit()
+                logger.info(f"✅ Session {session_id} title updated from 'New Chat' to '{title}'")
+                return cursor.rowcount > 0
+            else:
+                logger.info(f"⚠️ Skipping title update for session {session_id} - current title is not 'New Chat': '{current_title}'")
+                return False
 
     def update_session_timestamp(self, session_id: str) -> bool:
         """Update session timestamp (when new message is added)."""

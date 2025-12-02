@@ -158,14 +158,16 @@ class FirestoreService:
             logger.error(f"Error listing sessions: {e}", exc_info=True)
             return []
 
-    async def update_session_title(self, user_id: str, session_id: str, title: str) -> bool:
+    async def update_session_title(self, user_id: str, session_id: str, title: str, force: bool = False) -> bool:
         """
-        Update session title.
+        Update session title only if current title is "New Chat" (unless force=True).
+        This prevents overwriting user-modified titles.
 
         Args:
             user_id: Firebase UID
             session_id: Session ID
             title: New title
+            force: If True, update title regardless of current value (for manual user edits)
 
         Returns:
             Success status
@@ -173,13 +175,36 @@ class FirestoreService:
         try:
             session_ref = self.db.collection('users').document(user_id).collection('sessions').document(session_id)
 
-            session_ref.update({
-                'title': title,
-                'updated_at': firestore.SERVER_TIMESTAMP
-            })
+            # Get current session data to check existing title
+            session_doc = session_ref.get()
 
-            logger.info(f"Session {session_id} title updated")
-            return True
+            if not session_doc.exists:
+                logger.warning(f"Session {session_id} not found for title update")
+                return False
+
+            session_data = session_doc.to_dict()
+            current_title = session_data.get('title', '')
+
+            # If force=True (manual user edit), always update
+            if force:
+                session_ref.update({
+                    'title': title,
+                    'updated_at': firestore.SERVER_TIMESTAMP
+                })
+                logger.info(f"✅ Session {session_id} title forcefully updated to '{title}' (manual edit)")
+                return True
+
+            # Otherwise, only update if current title is "New Chat"
+            if current_title == 'New Chat':
+                session_ref.update({
+                    'title': title,
+                    'updated_at': firestore.SERVER_TIMESTAMP
+                })
+                logger.info(f"✅ Session {session_id} title updated from 'New Chat' to '{title}'")
+                return True
+            else:
+                logger.info(f"⚠️ Skipping title update for session {session_id} - current title is not 'New Chat': '{current_title}'")
+                return False
 
         except Exception as e:
             logger.error(f"Error updating session title: {e}", exc_info=True)
