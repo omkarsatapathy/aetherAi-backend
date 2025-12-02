@@ -23,6 +23,10 @@ class Config:
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     GEMINI_MODEL_ID: str = os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash")
 
+    # Google Cloud Platform Configuration (for Vertex AI)
+    GCP_PROJECT_ID: str = os.getenv("GCP_PROJECT_ID", "")
+    GCP_LOCATION: str = os.getenv("GCP_LOCATION", "us-east5")
+
     # OpenAI API Configuration
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENAI_MODEL_ID: str = os.getenv("OPENAI_MODEL_ID", "gpt-5-mini")

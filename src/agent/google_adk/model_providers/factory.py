@@ -19,6 +19,7 @@ Usage:
 from typing import Any, Optional, Union
 from .base import ADKBaseModelProvider
 from .gemini import GeminiProvider
+from .anthropic_vertex import AnthropicVertexProvider
 from .litellm_providers import (
     OpenAIProvider,
     AnthropicProvider,
@@ -38,6 +39,8 @@ class ADKModelProviderFactory:
         "gemini": GeminiProvider,
         "openai": OpenAIProvider,
         "anthropic": AnthropicProvider,
+        "anthropic-vertex": AnthropicVertexProvider,  # Claude via Google Cloud Vertex AI
+        "vertex-anthropic": AnthropicVertexProvider,  # Alias
         "ollama_chat": OllamaProvider,
         "ollama": OllamaProvider,  # Redirect to ollama_chat
         "llamacpp": LlamaCppProvider,
@@ -48,6 +51,8 @@ class ADKModelProviderFactory:
         "gemini": "gemini-2.5-flash",
         "openai": "openai/gpt-4o",
         "anthropic": "anthropic/claude-3-5-sonnet-20241022",
+        "anthropic-vertex": "anthropic-vertex/claude-sonnet-4@20250514",
+        "vertex-anthropic": "anthropic-vertex/claude-sonnet-4@20250514",
         "ollama_chat": "ollama_chat/llama3.2",
         "ollama": "ollama_chat/llama3.2",
         "llamacpp": "openai/local-model",
@@ -73,20 +78,29 @@ class ADKModelProviderFactory:
             ValueError: If provider is not recognized or not available
         """
         model_string = model_string.strip()
-        
+
         # Determine provider from model string
         provider_name = cls._detect_provider(model_string)
-        
+
         if provider_name not in cls._provider_prefixes:
             available = ", ".join(cls._provider_prefixes.keys())
             raise ValueError(
                 f"Unknown provider for model '{model_string}'. "
                 f"Available providers: {available}"
             )
-        
+
         # Create provider instance with the model ID
         provider_class = cls._provider_prefixes[provider_name]
-        
+
+        # Handle case where user passes just the provider name (e.g., "anthropic-vertex")
+        # In this case, use the default model for that provider
+        if model_string in cls._provider_prefixes or model_string.lower() in cls._provider_prefixes:
+            # User passed just provider name, use default model
+            default_model = cls._default_models.get(provider_name)
+            if default_model:
+                logger.info(f"Provider name '{model_string}' detected, using default model: {default_model}")
+                model_string = default_model
+
         # Handle Ollama redirect
         if provider_name == "ollama" and not model_string.startswith("ollama_chat/"):
             # Convert ollama/model to ollama_chat/model for proper tool support
@@ -94,7 +108,7 @@ class ADKModelProviderFactory:
                 model_string = model_string.replace("ollama/", "ollama_chat/", 1)
             else:
                 model_string = f"ollama_chat/{model_string}"
-        
+
         provider = provider_class(model_id=model_string)
         
         logger.info(f"Created {provider_name} provider for model: {model_string}")
@@ -104,33 +118,44 @@ class ADKModelProviderFactory:
     def _detect_provider(cls, model_string: str) -> str:
         """
         Detect the provider from a model string.
-        
+
         Args:
             model_string: Model identifier string
-            
+
         Returns:
             Provider name
         """
         model_lower = model_string.lower()
-        
-        # Check for explicit provider prefix (e.g., "openai/gpt-4o")
+
+        # Check if user passed just a provider name (e.g., "anthropic-vertex", "openai")
+        if model_lower in cls._provider_prefixes:
+            return model_lower
+
+        # Check for explicit provider prefix (e.g., "openai/gpt-4o", "anthropic-vertex/claude-sonnet-4")
         if "/" in model_string:
             prefix = model_string.split("/")[0].lower()
             if prefix in cls._provider_prefixes:
                 return prefix
-        
+
         # Check for Gemini models (no prefix needed)
         if model_lower.startswith("gemini"):
             return "gemini"
-        
+
         # Check for specific patterns
         if "gpt" in model_lower:
             return "openai"
+
+        # Check for Claude models - distinguish between Vertex AI and Direct API
         if "claude" in model_lower:
+            # If it has @timestamp (e.g., claude-sonnet-4@20250514), it's Vertex AI
+            if "@" in model_string:
+                return "anthropic-vertex"
+            # Otherwise, default to Direct API
             return "anthropic"
+
         if "llama" in model_lower or "mistral" in model_lower or "qwen" in model_lower:
             return "ollama_chat"
-        
+
         # Default to Gemini for unknown models
         logger.warning(f"Unknown model pattern '{model_string}', defaulting to Gemini")
         return "gemini"
@@ -175,14 +200,15 @@ class ADKModelProviderFactory:
         provider_display_names = {
             "gemini": "Google Gemini",
             "openai": "OpenAI",
-            "anthropic": "Anthropic Claude",
+            "anthropic": "Anthropic Claude (Direct API)",
+            "anthropic-vertex": "Anthropic Claude (Vertex AI)",
             "ollama_chat": "Ollama (Local)",
             "llamacpp": "LlamaCpp (Local)",
         }
 
         for name, provider_class in cls._provider_prefixes.items():
-            # Skip duplicates (ollama is alias for ollama_chat)
-            if name == "ollama":
+            # Skip duplicates (ollama is alias for ollama_chat, vertex-anthropic is alias)
+            if name in ("ollama", "vertex-anthropic"):
                 continue
             if name in seen_providers:
                 continue
@@ -215,11 +241,12 @@ class ADKModelProviderFactory:
         Returns the first available provider in priority order:
         1. Gemini (most integrated with ADK)
         2. OpenAI
-        3. Anthropic
-        4. Ollama
-        5. LlamaCpp
+        3. Anthropic Vertex AI - Claude Sonnet 4 (Google Cloud integration)
+        4. Anthropic Direct API
+        5. Ollama
+        6. LlamaCpp
         """
-        priority = ["gemini", "openai", "anthropic", "ollama_chat", "llamacpp"]
+        priority = ["gemini", "openai", "anthropic-vertex", "anthropic", "ollama_chat", "llamacpp"]
         
         for provider_name in priority:
             try:
