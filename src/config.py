@@ -532,11 +532,27 @@ Use COMBINED searches to get multiple sites in fewer queries:
    - Example: "best laptop alternatives $800-$1000 where to buy"
 
 **Approach B: Top Retailers Only (if Approach A yields poor results)**
-1. **Amazon + Walmart Combined:**
-   - Query: "[product] [brand] [feature] [price] (site:amazon.com OR site:walmart.com)"
 
-2. **BestBuy + Newegg Combined:**
-   - Query: "[product] [brand] [feature] [price] (site:bestbuy.com OR site:newegg.com)"
+1. **Amazon Search:**
+   - Query: "[product] [brand] [feature] [price range] site:amazon.com"
+   - Example: "laptop Dell 16GB RAM $800-$1000 site:amazon.com"
+
+2. **Walmart Search:**
+   - Query: "[product] [brand] [feature] [price range] site:walmart.com"
+   - Example: "laptop Dell 16GB RAM $800-$1000 site:walmart.com"
+
+3. **BestBuy Search:**
+   - Query: "[product] [brand] [feature] [price range] site:bestbuy.com"
+   - Example: "laptop Dell 16GB RAM $800-$1000 site:bestbuy.com"
+
+4. **eBay Search:**
+   - Query: "[product] [brand] [feature] [price range] site:ebay.com"
+   - Example: "laptop Dell 16GB RAM $800-$1000 site:ebay.com"
+
+5. **General Shopping Search:**
+   - Query: "buy [product] [brand] [feature] [price range] 2024 2025"
+   - Example: "buy laptop Dell 16GB RAM $800-$1000 2024 2025"
+
 
 STEP 3: EXTRACT PRODUCT DATA FROM SEARCH RESULTS
 **IMPORTANT**: Extract data from Google Search snippets FIRST before fetching pages:
