@@ -455,3 +455,61 @@ def explore_area(
     except Exception as e:
         logger.error(f"explore_area error: {e}")
         return f"Failed to explore area: {str(e)}"
+
+
+def get_location_name(
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None
+) -> str:
+    """
+    Get the name of a location (city/area) from coordinates using reverse geocoding.
+
+    Use this tool to get the user's location name for personalized responses.
+    For example, to greet users with "Good morning from Hyderabad!"
+
+    Args:
+        latitude: Optional latitude coordinate (will use session location if not provided)
+        longitude: Optional longitude coordinate (will use session location if not provided)
+
+    Returns:
+        Location name string (e.g., "Hyderabad", "Mumbai, Maharashtra")
+    """
+    try:
+        # Try to get location from session if not provided
+        if latitude is None or longitude is None:
+            session_id = get_current_session_id()
+            lat, lng = _get_user_location_from_session(session_id)
+        else:
+            lat, lng = latitude, longitude
+
+        logger.info(f"Getting location name for ({lat}, {lng})")
+
+        # Use Gemini to get location name via Maps grounding
+        client = _get_client()
+
+        response = client.models.generate_content(
+            model=Config.GEMINI_MODEL_ID,
+            contents=f"What is the name of the city or area at coordinates {lat}, {lng}? Reply with just the location name, like 'Hyderabad' or 'Banjara Hills, Hyderabad'. Keep it short.",
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_maps=types.GoogleMaps())],
+                tool_config=types.ToolConfig(
+                    retrieval_config=types.RetrievalConfig(
+                        lat_lng=types.LatLng(
+                            latitude=lat,
+                            longitude=lng
+                        )
+                    )
+                )
+            )
+        )
+
+        location_name = response.text.strip()
+        logger.info(f"Location name resolved: {location_name}")
+        return location_name
+
+    except LocationRequiredException as e:
+        logger.info(f"Location required for reverse geocoding, returning request marker")
+        return "LOCATION_REQUIRED"
+    except Exception as e:
+        logger.error(f"get_location_name error: {e}")
+        return "your area"  # Fallback gracefully

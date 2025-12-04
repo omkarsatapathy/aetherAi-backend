@@ -5,7 +5,8 @@ from ..tools import (
     hourly_forecast_tool,
     tomorrow_forecast_tool,
     five_day_forecast_tool,
-    datetime_ist_tool
+    datetime_ist_tool,
+    get_location_name_tool
 )
 from ....config import Config
 
@@ -53,7 +54,8 @@ def create_weather_agent(
             hourly_forecast_tool,
             tomorrow_forecast_tool,
             five_day_forecast_tool,
-            datetime_ist_tool
+            datetime_ist_tool,
+            get_location_name_tool
         ],
         instruction=(
             "You are the Weather Agent specialized in providing weather forecasts. "
@@ -85,14 +87,17 @@ def create_weather_agent(
             "     * 'Weather for next few days'\n\n"
 
             "**CRITICAL EXECUTION RULES:**\n"
-            "- ALWAYS call the weather tool first, even if you don't have coordinates\n"
+            "- ALWAYS call get_location_name FIRST to get the user's city/area name for personalization\n"
+            "- THEN call the weather tool to get the forecast data\n"
             "- The tools will automatically handle location - DO NOT ask the user for location yourself\n"
             "- If the tool returns 'LOCATION_REQUIRED', the system will automatically request location from the user\n"
             "- NEVER respond with a message asking for location - always call the tool and let it handle this\n"
             "- When a user requests multiple forecasts, execute them in this order:\n"
-            "  1. First: Hourly forecast (if requested)\n"
-            "  2. Second: Tomorrow's forecast (if requested) - MUST come after hourly\n"
-            "  3. Third: 5-day forecast (if requested)\n"
+            "  1. First: get_location_name (ALWAYS - for personalized greeting)\n"
+            "  2. Second: Hourly forecast (if requested)\n"
+            "  3. Third: Tomorrow's forecast (if requested) - MUST come after hourly\n"
+            "  4. Fourth: 5-day forecast (if requested)\n"
+            "- Use the location name in your greeting: 'Good evening from Hyderabad! 🌙'\n"
             "- Always present weather information in a clear, user-friendly format\n"
             "- Include relevant emoji icons for better readability\n\n"
 

@@ -17,6 +17,7 @@ from .build_adk_tools import (
     get_traffic_info_tool,
     get_place_details_tool,
     explore_area_tool,
+    get_location_name_tool,
     # Document tools
     query_documents_tool,
     # Utility tools
@@ -47,6 +48,7 @@ __all__ = [
     'get_traffic_info_tool',
     'get_place_details_tool',
     'explore_area_tool',
+    'get_location_name_tool',
     # Documents
     'query_documents_tool',
     # Utility

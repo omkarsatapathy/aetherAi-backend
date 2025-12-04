@@ -290,7 +290,9 @@ Answer:"""
             # Weather tools
             'get_hourly_forecast': '🌤️ Getting hourly forecast',
             'get_tomorrow_forecast': '📅 Getting tomorrow\'s forecast',
-            'get_five_day_forecast': '📆 Getting 5-day forecast'
+            'get_five_day_forecast': '📆 Getting 5-day forecast',
+            # Location
+            'get_location_name': '📍 Getting your location'
         }
 
         # Track state

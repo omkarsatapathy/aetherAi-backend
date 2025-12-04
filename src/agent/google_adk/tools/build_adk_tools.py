@@ -14,7 +14,8 @@ from ....tools.google_maps import (
     get_directions,
     get_traffic_info,
     get_place_details,
-    explore_area
+    explore_area,
+    get_location_name
 )
 from ....tools.document_rag import query_documents
 from ....tools.link_executor import fetch_url_content, fetch_multiple_urls
@@ -55,6 +56,7 @@ get_directions_tool = FunctionTool(func=get_directions)
 get_traffic_info_tool = FunctionTool(func=get_traffic_info)
 get_place_details_tool = FunctionTool(func=get_place_details)
 explore_area_tool = FunctionTool(func=explore_area)
+get_location_name_tool = FunctionTool(func=get_location_name)
 
 
 # ====================
@@ -106,6 +108,7 @@ __all__ = [
     'get_traffic_info_tool',
     'get_place_details_tool',
     'explore_area_tool',
+    'get_location_name_tool',
     # Documents
     'query_documents_tool',
     # Utility
