@@ -286,7 +286,11 @@ Answer:"""
             'get_traffic_info': '🚗 Checking traffic',
             'get_place_details': '🏪 Getting place details',
             'explore_area': '🔍 Exploring area',
-            'transfer_to_agent': '🔄 Delegating to specialist'
+            'transfer_to_agent': '🔄 Delegating to specialist',
+            # Weather tools
+            'get_hourly_forecast': '🌤️ Getting hourly forecast',
+            'get_tomorrow_forecast': '📅 Getting tomorrow\'s forecast',
+            'get_five_day_forecast': '📆 Getting 5-day forecast'
         }
 
         # Track state
@@ -295,6 +299,7 @@ Answer:"""
         last_heartbeat = time.time()
         maps_widget_data = None
         current_agent = "CoordinatorAgent"
+        location_required = False  # Flag to track if location was requested
 
         # Stream events using run_async (ADK pattern)
         async for event in runner.run_async(
@@ -362,12 +367,23 @@ Answer:"""
 
                     if is_location_required:
                         logger.info(f"📍 Location required for {tool_name}, sending location_request event")
+                        location_required = True  # Set flag to stop processing
+
+                        # Determine message based on tool name
+                        if 'weather' in tool_name.lower() or 'forecast' in tool_name.lower():
+                            location_message = 'Location access needed for weather forecast'
+                        else:
+                            location_message = 'Location access needed for this feature'
+
                         location_event_data = {
-                            'message': 'Location access needed for maps',
+                            'message': location_message,
                             'tool_name': tool_name,
                             'session_id': session_id
                         }
                         yield f"event: location_request\ndata: {json.dumps(location_event_data)}\n\n"
+
+                        # Set a user-friendly response message
+                        complete_response = f"I need your location to provide weather information. Please grant location access when prompted."
 
                     # Check for maps widget data in response
                     if isinstance(result, dict):
@@ -411,6 +427,11 @@ Answer:"""
             if time.time() - last_heartbeat > 15:
                 yield ": heartbeat\n\n"
                 last_heartbeat = time.time()
+
+            # Break the loop if location was required - we need user input first
+            if location_required:
+                logger.info("📍 Breaking event loop - waiting for user location")
+                break
 
         # Get token usage from streaming context (if tracked)
         input_tokens = 0
@@ -501,8 +522,16 @@ Answer:"""
             logger.info("ℹ️ No structured JSON detected, keeping original response")
 
         # Send completion event with full response and cost
+        # Determine status based on whether location was required
+        if location_required:
+            status_msg = 'Waiting for location access'
+        elif tool_count == 0:
+            status_msg = 'Done!'
+        else:
+            status_msg = f'Done! (used {tool_count} tool{"s" if tool_count > 1 else ""})'
+
         completion_data = {
-            'status': 'Done!' if tool_count == 0 else f'Done! (used {tool_count} tool{"s" if tool_count > 1 else ""})',
+            'status': status_msg,
             'response': final_response,
             'session_id': session_id,
             'tool_count': tool_count,
@@ -512,7 +541,8 @@ Answer:"""
                 'input': cost_data['input_tokens'],
                 'output': cost_data['output_tokens'],
                 'total': cost_data['total_tokens']
-            }
+            },
+            'location_required': location_required  # Add flag for frontend
         }
 
         # Add question field if questions were detected
@@ -527,13 +557,18 @@ Answer:"""
 
         # Save messages to Firestore in background (non-blocking)
         # This happens BEFORE sending the done event so it doesn't block the response
-        async def save_messages_background(has_questions: bool = False):
+        async def save_messages_background(has_questions: bool = False, skip_save: bool = False):
             """Background task to save messages without blocking the response.
 
             Args:
                 has_questions: If True, skips saving assistant message (preference questions)
+                skip_save: If True, skips saving both messages (e.g., location request pending)
             """
             try:
+                if skip_save:
+                    logger.info(f"⏭️ Skipping message save - location access pending (session: {session_id})")
+                    return
+
                 if user_id and session_id:
                     # Save user message
                     await firestore_service.add_message(
@@ -563,7 +598,11 @@ Answer:"""
 
         # Create background task (fire and forget)
         # Pass question_data existence to skip saving preference questions
-        asyncio.create_task(save_messages_background(has_questions=bool(question_data)))
+        # Skip saving entirely if location was required (we'll save when user provides location)
+        asyncio.create_task(save_messages_background(
+            has_questions=bool(question_data),
+            skip_save=location_required
+        ))
 
         # Send done event immediately without waiting for save
         yield f"event: done\ndata: {json.dumps(completion_data)}\n\n"

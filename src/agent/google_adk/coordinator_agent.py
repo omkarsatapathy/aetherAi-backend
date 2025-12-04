@@ -16,7 +16,8 @@ from .sub_agents import (
     create_news_reader_agent,
     create_maps_agent,
     create_researcher_agent,
-    create_shopping_assist_agent
+    create_shopping_assist_agent,
+    create_weather_agent
 )
 from .callbacks import ADKCallbackHandler, StreamingCallbackContext
 from .tools import datetime_ist_tool, query_documents_tool
@@ -40,6 +41,7 @@ def create_coordinator_agent(
     - NewsReaderAgent: Provides news briefs and story-telling
     - MapsAgent: Handles location, navigation, and places
     - ResearcherAgent: Conducts deep research and formal analysis
+    - WeatherAgent: Provides weather forecasts and conditions
 
     The coordinator uses LLM-driven delegation to route user requests to the appropriate
     specialist agent based on the request context.
@@ -113,6 +115,15 @@ def create_coordinator_agent(
         after_tool_callback=callbacks.get('after_tool_callback'),
     )
 
+    weather_agent = create_weather_agent(
+        before_agent_callback=callbacks.get('before_agent_callback'),
+        after_agent_callback=callbacks.get('after_agent_callback'),
+        before_model_callback=callbacks.get('before_model_callback'),
+        after_model_callback=callbacks.get('after_model_callback'),
+        before_tool_callback=callbacks.get('before_tool_callback'),
+        after_tool_callback=callbacks.get('after_tool_callback'),
+    )
+
     # Get the model - supports Gemini (native) and other providers via LiteLLM
     if model_provider:
         try:
@@ -133,10 +144,11 @@ def create_coordinator_agent(
             "I am the Coordinator Agent. I manage a team of specialized agents and route "
             "user requests to the most appropriate specialist. My team includes:\n"
             "- EmailAgent: For reading and managing Gmail messages\n"
-            "- NewsReaderAgent: For news updates, morning briefs, weather updates and engaging news delivery\n"
+            "- NewsReaderAgent: For news updates, morning briefs and engaging news delivery\n"
             "- MapsAgent: For locations, directions, traffic, and place recommendations\n"
             "- ResearcherAgent: For deep research, formal reports, and analytical investigations\n"
-            "- ShoppingAssistAgent: For product shopping, buying assistance, and purchase recommendations"
+            "- ShoppingAssistAgent: For product shopping, buying assistance, and purchase recommendations\n"
+            "- WeatherAgent: For weather forecasts, hourly forecasts, and weather conditions"
         ),
         # Sub-agents for delegation
         sub_agents=[
@@ -144,7 +156,8 @@ def create_coordinator_agent(
             news_reader_agent,
             maps_agent,
             researcher_agent,
-            shopping_assist_agent
+            shopping_assist_agent,
+            weather_agent
         ],
         # Coordinator's own tools
         tools=[datetime_ist_tool, query_documents_tool],
@@ -161,8 +174,8 @@ def create_coordinator_agent(
             "     → Use transfer_to_agent() to delegate to EmailAgent\n"
             "   - For NEWS requests (news brief, headlines, morning news, current events stories):\n"
             "     → Use transfer_to_agent() to delegate to NewsReaderAgent\n"
-            "   - For WEATHER requests (weather updates, weather forecast, temperature, weather for any city):\n"
-            "     → Use transfer_to_agent() to delegate to NewsReaderAgent\n"
+            "   - For WEATHER requests (weather forecast, hourly forecast, tomorrow weather, 5-day forecast, temperature):\n"
+            "     → Use transfer_to_agent() to delegate to WeatherAgent\n"
             "   - For LOCATION requests (directions, nearby places, traffic, restaurants, navigation):\n"
             "     → Use transfer_to_agent() to delegate to MapsAgent\n"
             "   - For RESEARCH requests (detailed analysis, formal report, comparison, investigation):\n"

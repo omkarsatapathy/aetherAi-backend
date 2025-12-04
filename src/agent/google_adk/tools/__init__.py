@@ -26,6 +26,10 @@ from .build_adk_tools import (
     extract_product_images_batch_tool,
     # Image tools
     image_analysis_tool,
+    # Weather tools
+    hourly_forecast_tool,
+    tomorrow_forecast_tool,
+    five_day_forecast_tool,
 )
 
 __all__ = [
@@ -52,4 +56,8 @@ __all__ = [
     'extract_product_images_batch_tool',
     # Image
     'image_analysis_tool',
+    # Weather
+    'hourly_forecast_tool',
+    'tomorrow_forecast_tool',
+    'five_day_forecast_tool',
 ]

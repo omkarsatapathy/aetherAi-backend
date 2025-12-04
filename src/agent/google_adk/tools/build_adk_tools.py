@@ -20,6 +20,11 @@ from ....tools.document_rag import query_documents
 from ....tools.link_executor import fetch_url_content, fetch_multiple_urls
 from ....tools.datetime_ist import get_current_datetime_ist
 from ....tools.product_image_extractor import extract_product_image, extract_product_images_batch
+from ....tools.weather_tools import (
+    get_hourly_forecast,
+    get_tomorrow_forecast,
+    get_five_day_forecast
+)
 
 
 # ====================
@@ -77,6 +82,14 @@ extract_product_images_batch_tool = FunctionTool(func=extract_product_images_bat
 image_analysis_tool = FunctionTool(func=analyze_image)
 
 
+# ====================
+# Weather Forecast Tools
+# ====================
+hourly_forecast_tool = FunctionTool(func=get_hourly_forecast)
+tomorrow_forecast_tool = FunctionTool(func=get_tomorrow_forecast)
+five_day_forecast_tool = FunctionTool(func=get_five_day_forecast)
+
+
 # Export all wrapped tools
 __all__ = [
     # Gmail
@@ -102,4 +115,8 @@ __all__ = [
     'extract_product_images_batch_tool',
     # Image Analysis
     'image_analysis_tool',
+    # Weather Forecast
+    'hourly_forecast_tool',
+    'tomorrow_forecast_tool',
+    'five_day_forecast_tool',
 ]
