@@ -9,10 +9,27 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install system dependencies (cached layer)
+# Playwright requires these additional packages for Chromium
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     curl \
+    wget \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpango-1.0-0 \
+    libcairo2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install UV - the fast Python package installer (10-100x faster than pip)
@@ -27,6 +44,10 @@ COPY requirements.txt .
 # Install Python dependencies using UV
 # This layer will be cached in the base image
 RUN /root/.local/bin/uv pip install --system -r requirements.txt
+
+# Install Playwright browsers (only Chromium for smaller image size)
+# This installs the browser binaries needed for headless operation
+RUN playwright install chromium --with-deps
 
 # Create necessary directories with proper permissions
 RUN mkdir -p uploads vector_db logs models database/gmail_credentials database/audio && \

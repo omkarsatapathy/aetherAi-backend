@@ -1,12 +1,21 @@
 """Google Maps grounding tool using Gemini API for location-aware responses."""
 import json
 from typing import Optional, Dict, Any
+from contextvars import ContextVar
 from google import genai
 from google.genai import types
 from ..config import Config
 from ..logging_config import get_logger
 
 logger = get_logger("chatbot.tools.google_maps")
+
+# Context variable to store current session ID for tools
+_current_session_id: ContextVar[Optional[str]] = ContextVar('current_session_id', default=None)
+
+
+class LocationRequiredException(Exception):
+    """Raised when user location is required but not available in session."""
+    pass
 
 # Lazy-load Gemini client to avoid initialization errors when env vars are missing
 _client = None
@@ -18,9 +27,73 @@ def _get_client():
         _client = genai.Client(api_key=Config.GEMINI_API_KEY)
     return _client
 
-# Default coordinates (Hyderabad, India)
+# Default coordinates (Hyderabad, India) - used only as fallback
 DEFAULT_LATITUDE = 17.473863
 DEFAULT_LONGITUDE = 78.351742
+
+# Global session state storage for location data
+_session_location_store = {}
+
+
+def set_current_session_id(session_id: str):
+    """Set the current session ID in context for tools to access."""
+    _current_session_id.set(session_id)
+
+
+def get_current_session_id() -> Optional[str]:
+    """Get the current session ID from context."""
+    return _current_session_id.get()
+
+
+def _get_user_location_from_session(session_id: Optional[str] = None) -> tuple[float, float]:
+    """
+    Get user location from session state.
+
+    Args:
+        session_id: Optional session ID to retrieve location for
+
+    Returns:
+        Tuple of (latitude, longitude)
+
+    Raises:
+        LocationRequiredException: If location not found in session
+    """
+    if session_id and session_id in _session_location_store:
+        loc = _session_location_store[session_id]
+        logger.info(f"Retrieved user location from session: ({loc['latitude']}, {loc['longitude']})")
+        return loc['latitude'], loc['longitude']
+
+    # Location not available - raise exception to trigger frontend request
+    logger.warning(f"User location not found in session {session_id}, requesting from user")
+    raise LocationRequiredException("User location required for maps functionality")
+
+
+def set_user_location(session_id: str, latitude: float, longitude: float):
+    """
+    Store user location in session.
+
+    Args:
+        session_id: Session identifier
+        latitude: User's latitude
+        longitude: User's longitude
+    """
+    _session_location_store[session_id] = {
+        'latitude': latitude,
+        'longitude': longitude
+    }
+    logger.info(f"Stored user location for session {session_id}: ({latitude}, {longitude})")
+
+
+def clear_user_location(session_id: str):
+    """
+    Clear user location from session.
+
+    Args:
+        session_id: Session identifier
+    """
+    if session_id in _session_location_store:
+        del _session_location_store[session_id]
+        logger.info(f"Cleared user location for session {session_id}")
 
 
 def query_maps_with_gemini(
@@ -149,19 +222,27 @@ def search_nearby_places(
 
     Args:
         query: What to search for (e.g., "best Italian restaurants", "nearby hospitals")
-        latitude: Optional latitude coordinate (defaults to Hyderabad)
-        longitude: Optional longitude coordinate (defaults to Hyderabad)
+        latitude: Optional latitude coordinate (will request from user if not provided)
+        longitude: Optional longitude coordinate (will request from user if not provided)
 
     Returns:
         Information about nearby places matching the query with optional maps widget
     """
     try:
-        lat = latitude if latitude is not None else DEFAULT_LATITUDE
-        lng = longitude if longitude is not None else DEFAULT_LONGITUDE
+        # Try to get location from session if not provided
+        if latitude is None or longitude is None:
+            session_id = get_current_session_id()
+            lat, lng = _get_user_location_from_session(session_id)
+        else:
+            lat, lng = latitude, longitude
 
         result = query_maps_with_gemini(query, lat, lng)
         return format_maps_response(result)
 
+    except LocationRequiredException as e:
+        # Return a special marker that triggers location request in frontend
+        logger.info(f"Location required for tool, returning request marker")
+        return "LOCATION_REQUIRED"
     except Exception as e:
         logger.error(f"search_nearby_places error: {e}")
         return f"Failed to search nearby places: {str(e)}"
@@ -185,20 +266,28 @@ def get_directions(
     Args:
         origin: Starting location or address
         destination: Destination location or address
-        latitude: Optional latitude for context (defaults to Hyderabad)
-        longitude: Optional longitude for context (defaults to Hyderabad)
+        latitude: Optional latitude for context (will request from user if not provided)
+        longitude: Optional longitude for context (will request from user if not provided)
 
     Returns:
         Directions and travel information with optional maps widget
     """
     try:
-        lat = latitude if latitude is not None else DEFAULT_LATITUDE
-        lng = longitude if longitude is not None else DEFAULT_LONGITUDE
+        # Try to get location from session if not provided
+        if latitude is None or longitude is None:
+            session_id = get_current_session_id()
+            lat, lng = _get_user_location_from_session(session_id)
+        else:
+            lat, lng = latitude, longitude
 
         query = f"How do I get from {origin} to {destination}? Provide directions and estimated travel time."
         result = query_maps_with_gemini(query, lat, lng)
         return format_maps_response(result)
 
+    except LocationRequiredException as e:
+        # Return a special marker that triggers location request in frontend
+        logger.info(f"Location required for tool, returning request marker")
+        return "LOCATION_REQUIRED"
     except Exception as e:
         logger.error(f"get_directions error: {e}")
         return f"Failed to get directions: {str(e)}"
@@ -220,15 +309,19 @@ def get_traffic_info(
 
     Args:
         location: Optional specific location or route to check traffic for
-        latitude: Optional latitude coordinate (defaults to Hyderabad)
-        longitude: Optional longitude coordinate (defaults to Hyderabad)
+        latitude: Optional latitude coordinate (will request from user if not provided)
+        longitude: Optional longitude coordinate (will request from user if not provided)
 
     Returns:
         Current traffic information and conditions with optional maps widget
     """
     try:
-        lat = latitude if latitude is not None else DEFAULT_LATITUDE
-        lng = longitude if longitude is not None else DEFAULT_LONGITUDE
+        # Try to get location from session if not provided
+        if latitude is None or longitude is None:
+            session_id = get_current_session_id()
+            lat, lng = _get_user_location_from_session(session_id)
+        else:
+            lat, lng = latitude, longitude
 
         if location:
             query = f"What is the current traffic situation near {location}? Include any congestion, road conditions, or delays."
@@ -238,6 +331,10 @@ def get_traffic_info(
         result = query_maps_with_gemini(query, lat, lng)
         return format_maps_response(result)
 
+    except LocationRequiredException as e:
+        # Return a special marker that triggers location request in frontend
+        logger.info(f"Location required for tool, returning request marker")
+        return "LOCATION_REQUIRED"
     except Exception as e:
         logger.error(f"get_traffic_info error: {e}")
         return f"Failed to get traffic info: {str(e)}"
@@ -260,20 +357,28 @@ def get_place_details(
 
     Args:
         place_name: Name of the place to get details about
-        latitude: Optional latitude for context (defaults to Hyderabad)
-        longitude: Optional longitude for context (defaults to Hyderabad)
+        latitude: Optional latitude for context (will request from user if not provided)
+        longitude: Optional longitude for context (will request from user if not provided)
 
     Returns:
         Detailed information about the place with optional maps widget
     """
     try:
-        lat = latitude if latitude is not None else DEFAULT_LATITUDE
-        lng = longitude if longitude is not None else DEFAULT_LONGITUDE
+        # Try to get location from session if not provided
+        if latitude is None or longitude is None:
+            session_id = get_current_session_id()
+            lat, lng = _get_user_location_from_session(session_id)
+        else:
+            lat, lng = latitude, longitude
 
         query = f"Tell me about {place_name}. Include its address, operating hours, ratings, reviews, and any other relevant details."
         result = query_maps_with_gemini(query, lat, lng)
         return format_maps_response(result)
 
+    except LocationRequiredException as e:
+        # Return a special marker that triggers location request in frontend
+        logger.info(f"Location required for tool, returning request marker")
+        return "LOCATION_REQUIRED"
     except Exception as e:
         logger.error(f"get_place_details error: {e}")
         return f"Failed to get place details: {str(e)}"
@@ -298,15 +403,19 @@ def explore_area(
     Args:
         area: Optional specific area or neighborhood to explore
         interests: Optional interests or preferences (e.g., "family-friendly", "nightlife", "outdoor activities")
-        latitude: Optional latitude coordinate (defaults to Hyderabad)
-        longitude: Optional longitude coordinate (defaults to Hyderabad)
+        latitude: Optional latitude coordinate (will request from user if not provided)
+        longitude: Optional longitude coordinate (will request from user if not provided)
 
     Returns:
         Recommendations and interesting places to explore with optional maps widget
     """
     try:
-        lat = latitude if latitude is not None else DEFAULT_LATITUDE
-        lng = longitude if longitude is not None else DEFAULT_LONGITUDE
+        # Try to get location from session if not provided
+        if latitude is None or longitude is None:
+            session_id = get_current_session_id()
+            lat, lng = _get_user_location_from_session(session_id)
+        else:
+            lat, lng = latitude, longitude
 
         if area and interests:
             query = f"What are some interesting places to visit in {area} for someone interested in {interests}? Include popular attractions, hidden gems, and recommendations."
@@ -320,6 +429,10 @@ def explore_area(
         result = query_maps_with_gemini(query, lat, lng)
         return format_maps_response(result)
 
+    except LocationRequiredException as e:
+        # Return a special marker that triggers location request in frontend
+        logger.info(f"Location required for tool, returning request marker")
+        return "LOCATION_REQUIRED"
     except Exception as e:
         logger.error(f"explore_area error: {e}")
         return f"Failed to explore area: {str(e)}"

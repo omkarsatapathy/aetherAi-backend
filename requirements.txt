@@ -4,6 +4,7 @@ pydantic
 requests==2.31.0
 python-dotenv==1.0.0
 beautifulsoup4>=4.12.3,<5.0.0
+playwright>=1.40.0
 
 # LlamaIndex and dependencies for RAG
 llama-index>=0.12.0

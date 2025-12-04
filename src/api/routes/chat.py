@@ -1,11 +1,12 @@
 """Chat streaming endpoint - Google ADK only."""
 from fastapi import APIRouter, Query, Depends
 from fastapi.responses import StreamingResponse
-from src.api.models import ChatRequest
+from src.api.models import ChatRequest, LocationSubmitRequest
 from src.agent.google_adk import create_adk_streaming_response, ADKModelProviderFactory
 from src.middleware.auth_middleware import get_current_user, get_user_id_from_token
 from src.logging_config import get_logger
 from src.config import Config
+from src.tools.google_maps import set_user_location
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 
@@ -144,6 +145,50 @@ async def get_model_providers():
         "providers": providers,
         "default_provider": default_provider,
         "default_model": default_model
+    }
+
+
+# ============================================================================
+# Location Endpoint
+# ============================================================================
+
+@router.post("/chat/location")
+async def submit_user_location(
+    request: LocationSubmitRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Receive and store user location coordinates for map-based tools.
+
+    This endpoint is called by the frontend after the user grants location permission.
+    The location is stored in session and used by all subsequent map tool invocations.
+    """
+    user_id = get_user_id_from_token(current_user)
+
+    logger.info(f"[Location] Received location for session {request.session_id}: ({request.latitude}, {request.longitude})")
+
+    # Validate coordinates
+    if not (-90 <= request.latitude <= 90):
+        logger.warning(f"[Location] Invalid latitude: {request.latitude}")
+        return {"status": "error", "message": "Invalid latitude (must be between -90 and 90)"}
+
+    if not (-180 <= request.longitude <= 180):
+        logger.warning(f"[Location] Invalid longitude: {request.longitude}")
+        return {"status": "error", "message": "Invalid longitude (must be between -180 and 180)"}
+
+    # Store location in session
+    set_user_location(
+        session_id=request.session_id,
+        latitude=request.latitude,
+        longitude=request.longitude
+    )
+
+    logger.info(f"[Location] Successfully stored location for session {request.session_id}")
+
+    return {
+        "status": "success",
+        "message": "Location saved successfully",
+        "session_id": request.session_id
     }
 
 

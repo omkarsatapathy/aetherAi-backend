@@ -8,10 +8,19 @@ from typing import Dict, Any, Optional, List
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
 import re
+import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from ..logging_config import get_logger
 
 logger = get_logger("chatbot.tools.link_executor")
+
+# Playwright availability check
+try:
+    from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
+    PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
+    logger.warning("Playwright not available. Install with: pip install playwright && playwright install chromium")
 
 # Common user agents for rotation
 USER_AGENTS = [
@@ -323,6 +332,133 @@ def _extract_links(soup: BeautifulSoup, base_url: str) -> list:
     return links[:20]  # Return top 20 links
 
 
+async def _fetch_with_playwright(url: str, max_content_length: int = 8000, include_links: bool = False) -> Dict[str, Any]:
+    """
+    Fallback method using Playwright for JavaScript-heavy sites with anti-bot protection.
+
+    This runs a headless browser to:
+    - Handle JavaScript rendering
+    - Bypass anti-bot protection (Cloudflare, etc.)
+    - Extract content from dynamic pages
+
+    Args:
+        url: The URL to fetch
+        max_content_length: Maximum content length to return
+        include_links: Whether to extract links from the page
+
+    Returns:
+        Dict containing status, content, metadata, and optional links
+    """
+    if not PLAYWRIGHT_AVAILABLE:
+        return {
+            'url': url,
+            'status': 'error',
+            'metadata': {},
+            'content': '',
+            'links': [],
+            'error': 'Playwright not available'
+        }
+
+    result = {
+        'url': url,
+        'status': 'error',
+        'metadata': {},
+        'content': '',
+        'links': [],
+        'error': None
+    }
+
+    logger.info(f"🎭 Using Playwright fallback for: {url}")
+
+    try:
+        async with async_playwright() as p:
+            # Launch browser in headless mode (no GUI, container-friendly)
+            browser = await p.chromium.launch(
+                headless=True,
+                args=[
+                    '--no-sandbox',  # Required for Docker/Cloud Run
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',  # Use /tmp instead of /dev/shm
+                    '--disable-gpu',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--disable-blink-features=AutomationControlled'  # Hide automation
+                ]
+            )
+
+            try:
+                # Create new page with realistic viewport
+                page = await browser.new_page(
+                    user_agent=USER_AGENTS[0],
+                    viewport={'width': 1920, 'height': 1080}
+                )
+
+                # Set extra headers to look more like a real browser
+                await page.set_extra_http_headers({
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                })
+
+                # Navigate to the page with timeout
+                try:
+                    await page.goto(url, wait_until='networkidle', timeout=30000)
+                except PlaywrightTimeout:
+                    # If networkidle times out, try with domcontentloaded
+                    logger.warning(f"Network idle timeout, trying domcontentloaded for {url}")
+                    await page.goto(url, wait_until='domcontentloaded', timeout=20000)
+
+                # Wait a bit for any dynamic content to load
+                await page.wait_for_timeout(2000)
+
+                # Get the page content
+                html_content = await page.content()
+
+                # Parse with BeautifulSoup
+                soup = BeautifulSoup(html_content, 'html.parser')
+
+                # Extract metadata
+                result['metadata'] = _extract_metadata(soup, url)
+
+                # Extract main content
+                content_soup = _extract_main_content(soup)
+                text_content = content_soup.get_text(separator='\n', strip=True)
+                text_content = _clean_text(text_content)
+
+                # Truncate if needed
+                if len(text_content) > max_content_length:
+                    text_content = text_content[:max_content_length] + "... [content truncated]"
+
+                result['content'] = text_content
+
+                # Extract links if requested
+                if include_links:
+                    result['links'] = _extract_links(soup, url)
+
+                result['status'] = 'success'
+
+                logger.info(
+                    f"✅ Playwright successfully fetched URL",
+                    extra={"extra_data": {
+                        "url": url,
+                        "title": result['metadata'].get('title'),
+                        "content_length": len(result['content']),
+                        "links_count": len(result['links'])
+                    }}
+                )
+
+            finally:
+                await browser.close()
+
+    except PlaywrightTimeout as e:
+        result['error'] = f"Playwright timeout: {str(e)}"
+        logger.error(f"Playwright timeout", extra={"extra_data": {"url": url, "error": str(e)}})
+    except Exception as e:
+        result['error'] = f"Playwright error: {str(e)}"
+        logger.error(f"Playwright error", extra={"extra_data": {"url": url, "error": str(e)}}, exc_info=True)
+
+    return result
+
+
 def _fetch_url_content_impl(url: str, max_content_length: int = 8000, include_links: bool = False) -> Dict[str, Any]:
     """Internal implementation for URL content fetching."""
     logger.info(f"Fetching URL content", extra={"extra_data": {"url": url}})
@@ -412,7 +548,30 @@ def _fetch_url_content_impl(url: str, max_content_length: int = 8000, include_li
 
     if not response or response.status_code != 200:
         result['error'] = last_error or "Failed to fetch URL after 3 attempts"
-        logger.error(f"Failed to fetch URL", extra={"extra_data": {"url": url, "error": result['error']}})
+        logger.warning(f"Standard fetch failed, trying Playwright fallback", extra={"extra_data": {"url": url, "error": result['error']}})
+
+        # Try Playwright fallback for failed requests
+        if PLAYWRIGHT_AVAILABLE:
+            try:
+                # Run async Playwright in a new event loop
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    playwright_result = loop.run_until_complete(
+                        _fetch_with_playwright(url, max_content_length, include_links)
+                    )
+                    if playwright_result['status'] == 'success':
+                        logger.info(f"✅ Playwright fallback succeeded for {url}")
+                        return playwright_result
+                    else:
+                        logger.warning(f"Playwright fallback also failed: {playwright_result.get('error')}")
+                finally:
+                    loop.close()
+            except Exception as e:
+                logger.error(f"Playwright fallback exception", extra={"extra_data": {"url": url, "error": str(e)}})
+
+        # Both methods failed, return original error
+        logger.error(f"All fetch methods failed", extra={"extra_data": {"url": url, "error": result['error']}})
         return result
 
     # Parse content

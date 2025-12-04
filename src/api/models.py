@@ -28,3 +28,10 @@ class MessageCreate(BaseModel):
     session_id: str
     role: str
     content: str
+
+
+class LocationSubmitRequest(BaseModel):
+    """User location submission request."""
+    session_id: str
+    latitude: float
+    longitude: float

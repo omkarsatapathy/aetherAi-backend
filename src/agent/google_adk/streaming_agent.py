@@ -35,7 +35,9 @@ from .callbacks import (
 from ...config import Config
 from ...logging_config import get_logger
 from ...utils.token_tracker import get_request_tracker, reset_request_tracker
+from ...utils.json_structure_enforcer import get_json_enforcer
 from ...tools.document_rag import set_current_session_id
+from ...tools.google_maps import set_current_session_id as set_maps_session_id, LocationRequiredException
 from ...services.firestore_service import firestore_service
 import asyncio
 
@@ -110,6 +112,7 @@ async def create_adk_streaming_response(
 
         # Set session_id in context for tools to access
         set_current_session_id(session_id)
+        set_maps_session_id(session_id)
 
         # Create session with session_id in state for tool access
         await session_service.create_session(
@@ -344,7 +347,28 @@ Answer:"""
                 for response in function_responses:
                     tool_name = response.name
                     result = response.response
-                    
+
+                    # Debug logging to see what we're getting
+                    logger.info(f"🔍 Tool response - Name: {tool_name}, Type: {type(result)}, Value: {str(result)[:200]}")
+
+                    # Check for location request marker (string or dict with 'result' key)
+                    is_location_required = False
+                    if isinstance(result, str) and result == "LOCATION_REQUIRED":
+                        is_location_required = True
+                    elif isinstance(result, dict) and result.get('result') == "LOCATION_REQUIRED":
+                        is_location_required = True
+                    elif isinstance(result, dict) and result.get('output') == "LOCATION_REQUIRED":
+                        is_location_required = True
+
+                    if is_location_required:
+                        logger.info(f"📍 Location required for {tool_name}, sending location_request event")
+                        location_event_data = {
+                            'message': 'Location access needed for maps',
+                            'tool_name': tool_name,
+                            'session_id': session_id
+                        }
+                        yield f"event: location_request\ndata: {json.dumps(location_event_data)}\n\n"
+
                     # Check for maps widget data in response
                     if isinstance(result, dict):
                         result_str = json.dumps(result)
@@ -414,20 +438,67 @@ Answer:"""
             logger.info(f"📍 Appending maps widget metadata from context")
             final_response += f"\n\n<!--MAPS_WIDGET:{json.dumps(streaming_context.maps_widget_data)}-->"
 
-        # Check if response contains questions JSON (shopping preference agent)
+        # Post-process response to ensure structured JSON output for shopping agents
+        # This layer uses LLM to enforce proper JSON structure without changing events
+        # IMPORTANT: Only validates/cleans the response, doesn't change event flow
         question_data = None
-        try:
-            # Look for JSON code blocks with questions
-            import re
-            json_match = re.search(r'```json\s*(\{.*?"questions".*?\})\s*```', final_response, re.DOTALL)
-            if json_match:
-                potential_json = json_match.group(1)
-                parsed_json = json.loads(potential_json)
-                if 'questions' in parsed_json:
-                    question_data = parsed_json
-                    logger.info(f"📋 Detected questions JSON in response")
-        except (json.JSONDecodeError, AttributeError) as e:
-            logger.debug(f"No questions JSON found in response: {e}")
+        product_data = None
+
+        json_enforcer = get_json_enforcer()
+
+        # Extract all JSON blocks from the response
+        all_json_blocks = re.findall(r'```json\s*(\{.*?\})\s*```', final_response, re.DOTALL)
+
+        logger.info(f"📊 Found {len(all_json_blocks)} JSON blocks in response")
+
+        # Priority: products > questions (products are the final output of shopping flow)
+        # Try to find products JSON first
+        for idx, json_block in enumerate(all_json_blocks):
+            try:
+                parsed = json.loads(json_block)
+                if 'products' in parsed and isinstance(parsed['products'], list) and len(parsed['products']) > 0:
+                    logger.info(f"🔍 Block {idx+1}: Detected 'products' JSON with {len(parsed['products'])} products - validating")
+                    # Validate and enforce structure if needed
+                    validated = json_enforcer.extract_product_summary_json(json_block)
+                    if validated:
+                        product_data = validated
+                        logger.info(f"✅ Product JSON validated successfully")
+                        # Found valid products, stop looking
+                        break
+            except Exception as e:
+                logger.debug(f"Block {idx+1}: Not valid products JSON - {e}")
+                continue
+
+        # If no products found, look for questions JSON
+        if not product_data:
+            for idx, json_block in enumerate(all_json_blocks):
+                try:
+                    parsed = json.loads(json_block)
+                    if 'questions' in parsed and isinstance(parsed['questions'], list) and len(parsed['questions']) > 0:
+                        logger.info(f"🔍 Block {idx+1}: Detected 'questions' JSON with {len(parsed['questions'])} questions - validating")
+                        # Validate and enforce structure if needed
+                        validated = json_enforcer.extract_shopping_preference_json(json_block)
+                        if validated:
+                            question_data = validated
+                            logger.info(f"✅ Questions JSON validated successfully")
+                            # Found valid questions, stop looking
+                            break
+                except Exception as e:
+                    logger.debug(f"Block {idx+1}: Not valid questions JSON - {e}")
+                    continue
+
+        # Replace final_response with ONLY the validated JSON (highest priority found)
+        # This removes any duplicate or conflicting JSON blocks
+        if product_data:
+            logger.info("📝 Using validated product JSON as final response")
+            intro_message = "Based on your preferences, here are my top recommendations:"
+            final_response = f"{intro_message}\n\n```json\n{json.dumps(product_data, indent=2)}\n```"
+        elif question_data:
+            logger.info("📝 Using validated questions JSON as final response")
+            final_response = f"{question_data.get('agent_message', '')}\n\n```json\n{json.dumps(question_data, indent=2)}\n```"
+        else:
+            # No structured JSON found - leave response as is
+            logger.info("ℹ️ No structured JSON detected, keeping original response")
 
         # Send completion event with full response and cost
         completion_data = {
@@ -448,6 +519,11 @@ Answer:"""
         if question_data:
             completion_data['question'] = question_data
             logger.info(f"✅ Added 'question' field to completion data")
+
+        # Add products field if product data was detected
+        if product_data:
+            completion_data['products'] = product_data.get('products', [])
+            logger.info(f"✅ Added 'products' field to completion data with {len(completion_data['products'])} products")
 
         # Save messages to Firestore in background (non-blocking)
         # This happens BEFORE sending the done event so it doesn't block the response

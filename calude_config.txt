@@ -1,0 +1,8 @@
+# Set environment variables
+export CLAUDE_CODE_USE_BEDROCK=1
+export AWS_REGION=ap-southeast-2
+export ANTHROPIC_MODEL='global.anthropic.claude-opus-4-5-20251101-v1:0'
+export DISABLE_PROMPT_CACHING=1
+
+# Run Claude Code
+claude

@@ -175,17 +175,19 @@ QUERY ROUTING:
 - "tell me about [place]" → get_place_details
 - "explore/discover" → explore_area
 
-DEFAULT LOCATION: Hyderabad, India (17.473863, 78.351742)
+CRITICAL: ALWAYS call the appropriate tool immediately. DO NOT ask the user for their location manually.
+The tools will automatically request location permissions from the user's browser if needed.
+NEVER ask "could you share your location" or similar questions - just call the tool directly.
 
 RESPONSE FORMAT:
-1. Directly answer query
+1. Directly answer query using tool results
 2. Provide: addresses, hours, ratings, distances
 3. Include: parking, accessibility, best times
 4. Offer alternatives if appropriate
 
 TONE: Local guide providing actionable information.
 
-ALWAYS mention area/city. Adapt if user specifies different location."""
+ALWAYS mention area/city based on the detected or provided location."""
 
     SHOPPING_PREFERENCE_AGENT_PROMPT: str = """Shopping Preference Collector - Product research and preference gathering.
 
