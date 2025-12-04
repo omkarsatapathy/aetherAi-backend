@@ -1,5 +1,7 @@
 """Daily weather forecast tools using Google Weather API."""
 import requests
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Optional
 from ...config import Config
 from ...logging_config import get_logger
@@ -140,20 +142,30 @@ def get_tomorrow_forecast(
             result += f"**Sun Times:**\n"
             sunrise = sun_events.get('sunriseTime', '')
             sunset = sun_events.get('sunsetTime', '')
+
+            # Get timezone from API response for local time conversion
+            timezone_id = data.get('timeZone', {}).get('id', 'Asia/Kolkata')
+            try:
+                local_tz = ZoneInfo(timezone_id)
+            except:
+                local_tz = ZoneInfo('Asia/Kolkata')  # Fallback to IST
+
             if sunrise:
-                # Parse ISO 8601 time and format nicely
+                # Parse ISO 8601 time and convert to local timezone
                 try:
-                    from datetime import datetime
                     sunrise_dt = datetime.fromisoformat(sunrise.replace('Z', '+00:00'))
-                    result += f"🌅 Sunrise: {sunrise_dt.strftime('%I:%M %p')}\n"
-                except:
+                    sunrise_local = sunrise_dt.astimezone(local_tz)
+                    result += f"🌅 Sunrise: {sunrise_local.strftime('%I:%M %p')}\n"
+                except Exception as e:
+                    logger.error(f"Error parsing sunrise: {e}")
                     result += f"🌅 Sunrise: {sunrise}\n"
             if sunset:
                 try:
-                    from datetime import datetime
                     sunset_dt = datetime.fromisoformat(sunset.replace('Z', '+00:00'))
-                    result += f"🌇 Sunset: {sunset_dt.strftime('%I:%M %p')}\n"
-                except:
+                    sunset_local = sunset_dt.astimezone(local_tz)
+                    result += f"🌇 Sunset: {sunset_local.strftime('%I:%M %p')}\n"
+                except Exception as e:
+                    logger.error(f"Error parsing sunset: {e}")
                     result += f"🌇 Sunset: {sunset}\n"
 
         logger.info(f"Successfully fetched tomorrow's forecast")
