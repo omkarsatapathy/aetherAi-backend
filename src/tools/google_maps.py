@@ -100,7 +100,8 @@ def query_maps_with_gemini(
     query: str,
     latitude: float = DEFAULT_LATITUDE,
     longitude: float = DEFAULT_LONGITUDE,
-    include_widget: bool = True
+    include_widget: bool = True,
+    radius_km: Optional[float] = None
 ) -> Dict[str, Any]:
     """
     Query Google Maps using Gemini's Maps grounding feature.
@@ -110,17 +111,25 @@ def query_maps_with_gemini(
         latitude: Latitude coordinate for location context
         longitude: Longitude coordinate for location context
         include_widget: Whether to include widget token for map rendering
+        radius_km: Optional search radius in kilometers (e.g., 1.0 for 1km, 5.0 for 5km)
 
     Returns:
         Dictionary with response text, widget token, and grounding metadata
     """
     try:
-        logger.info(f"Maps query: '{query}' at ({latitude}, {longitude})")
+        # Enhance query with radius if specified
+        enhanced_query = query
+        if radius_km is not None:
+            enhanced_query = f"{query} within {radius_km}km radius"
+            logger.info(f"Maps query with radius: '{enhanced_query}' at ({latitude}, {longitude})")
+        else:
+            logger.info(f"Maps query: '{query}' at ({latitude}, {longitude})")
+
         client = _get_client()
 
         response = client.models.generate_content(
             model=Config.GEMINI_MODEL_ID,
-            contents=query,
+            contents=enhanced_query,
             config=types.GenerateContentConfig(
                 # Turn on grounding with Google Maps
                 tools=[types.Tool(google_maps=types.GoogleMaps(enable_widget=include_widget))],
@@ -210,7 +219,8 @@ def format_maps_response(result: Dict[str, Any]) -> str:
 def search_nearby_places(
     query: str,
     latitude: Optional[float] = None,
-    longitude: Optional[float] = None
+    longitude: Optional[float] = None,
+    radius_km: Optional[float] = None
 ) -> str:
     """
     Search for nearby places, restaurants, businesses, or points of interest.
@@ -224,9 +234,16 @@ def search_nearby_places(
         query: What to search for (e.g., "best Italian restaurants", "nearby hospitals")
         latitude: Optional latitude coordinate (will request from user if not provided)
         longitude: Optional longitude coordinate (will request from user if not provided)
+        radius_km: Optional search radius in kilometers (e.g., 1.0 for 1km, 5.0 for 5km).
+                   If not specified, uses default nearby search (~2-5km depending on query)
 
     Returns:
         Information about nearby places matching the query with optional maps widget
+
+    Examples:
+        - "coffee shops" with radius_km=1.0 → searches within 1km
+        - "restaurants" with radius_km=5.0 → searches within 5km
+        - "gas stations" with no radius → uses default nearby search
     """
     try:
         # Try to get location from session if not provided
@@ -236,7 +253,7 @@ def search_nearby_places(
         else:
             lat, lng = latitude, longitude
 
-        result = query_maps_with_gemini(query, lat, lng)
+        result = query_maps_with_gemini(query, lat, lng, radius_km=radius_km)
         return format_maps_response(result)
 
     except LocationRequiredException as e:
@@ -389,7 +406,8 @@ def explore_area(
     area: Optional[str] = None,
     interests: Optional[str] = None,
     latitude: Optional[float] = None,
-    longitude: Optional[float] = None
+    longitude: Optional[float] = None,
+    radius_km: Optional[float] = None
 ) -> str:
     """
     Explore and discover interesting places in an area based on interests.
@@ -405,6 +423,7 @@ def explore_area(
         interests: Optional interests or preferences (e.g., "family-friendly", "nightlife", "outdoor activities")
         latitude: Optional latitude coordinate (will request from user if not provided)
         longitude: Optional longitude coordinate (will request from user if not provided)
+        radius_km: Optional search radius in kilometers for exploration
 
     Returns:
         Recommendations and interesting places to explore with optional maps widget
@@ -426,7 +445,7 @@ def explore_area(
         else:
             query = "What are some interesting places to visit and things to do nearby? Include popular attractions, restaurants, and local favorites."
 
-        result = query_maps_with_gemini(query, lat, lng)
+        result = query_maps_with_gemini(query, lat, lng, radius_km=radius_km)
         return format_maps_response(result)
 
     except LocationRequiredException as e:
