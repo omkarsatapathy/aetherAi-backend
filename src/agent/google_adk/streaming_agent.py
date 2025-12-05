@@ -273,26 +273,26 @@ Answer:"""
 
         # Map tool names to display names with emojis
         tool_display_names = {
-            # 'calculator': '🧮 Calculating',
+            'calculator': 'Calculating',
             'google_search_with_context': 'Searching the web',
-            # 'get_current_datetime_ist': '🕐 Getting current time',
-            'query_documents': '📄 Analyzing documents',
-            'fetch_gmail_messages': '📧 Fetching news from emails',
-            'gmail_auth_status': '🔐 Checking Gmail auth status',
-            'fetch_url_content': '🔗 Fetching URL content',
-            'fetch_multiple_urls': '🔗 Fetching multiple URLs',
-            'search_nearby_places': '📍 Searching nearby places',
-            'get_directions': '🗺️ Getting directions',
-            'get_traffic_info': '🚗 Checking traffic',
-            'get_place_details': '🏪 Getting place details',
-            'explore_area': '🔍 Exploring area',
-            'transfer_to_agent': '🔄 Delegating to specialist',
+            # 'get_current_datetime_ist': 'Getting current time',
+            'query_documents': 'Analyzing documents',
+            'fetch_gmail_messages': 'Fetching news from emails',
+            'gmail_auth_status': 'Checking Gmail auth status',
+            'fetch_url_content': 'Fetching URL content',
+            'fetch_multiple_urls': 'Fetching multiple URLs',
+            'search_nearby_places': 'Researching nearby places',
+            'get_directions': 'Getting directions',
+            'get_traffic_info': 'Checking traffic',
+            'get_place_details': 'Getting place details',
+            'explore_area': 'Exploring area',
+            'transfer_to_agent': 'Delegating to specialist',
             # Weather tools
-            'get_hourly_forecast': '🌤️ Getting hourly forecast',
-            'get_tomorrow_forecast': '📅 Getting tomorrow\'s forecast',
-            'get_five_day_forecast': '📆 Getting 5-day forecast',
+            'get_hourly_forecast': 'Getting hourly forecast',
+            'get_tomorrow_forecast': 'Getting tomorrow\'s forecast',
+            'get_five_day_forecast': 'Getting 5-day forecast',
             # Location
-            'get_location_name': '📍 Getting your location'
+            'get_location_name': 'Getting your location'
         }
 
         # Track state
@@ -302,6 +302,8 @@ Answer:"""
         maps_widget_data = None
         current_agent = "CoordinatorAgent"
         location_required = False  # Flag to track if location was requested
+        total_input_tokens = 0
+        total_output_tokens = 0
 
         # Stream events using run_async (ADK pattern)
         async for event in runner.run_async(
@@ -425,6 +427,16 @@ Answer:"""
                     logger.info(f"🔀 Transferring to: {target_agent}")
                     yield f"event: thinking\ndata: {json.dumps({'status': f'Delegating to {target_agent}'})}\n\n"
 
+            # Capture token usage from Gemini usage_metadata
+            if hasattr(event, 'usage_metadata') and event.usage_metadata:
+                usage = event.usage_metadata
+                input_tokens = getattr(usage, 'prompt_token_count', 0) or 0
+                output_tokens = getattr(usage, 'candidates_token_count', 0) or 0
+                if input_tokens > 0:
+                    total_input_tokens = input_tokens  # Use latest cumulative value
+                if output_tokens > 0:
+                    total_output_tokens = output_tokens  # Use latest cumulative value
+
             # Send periodic heartbeat to keep connection alive
             if time.time() - last_heartbeat > 15:
                 yield ": heartbeat\n\n"
@@ -435,10 +447,13 @@ Answer:"""
                 logger.info("📍 Breaking event loop - waiting for user location")
                 break
 
-        # Get token usage from streaming context (if tracked)
-        input_tokens = 0
-        output_tokens = 0
-        
+        # Add captured Gemini token usage to the tracker
+        if total_input_tokens > 0 or total_output_tokens > 0:
+            tracker.add_completion_usage({
+                'prompt_tokens': total_input_tokens,
+                'completion_tokens': total_output_tokens
+            }, model_id=Config.GEMINI_MODEL_ID)
+
         # Calculate cost for this request
         model_id = Config.GEMINI_MODEL_ID
         cost_data = tracker.calculate_cost(model_id=model_id)
