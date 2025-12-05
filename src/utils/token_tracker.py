@@ -1,33 +1,31 @@
-"""Token usage tracker for OpenAI API calls with cost calculation in INR."""
+"""Token usage tracker for LLM API calls with cost calculation in INR."""
 from typing import Dict, Optional
 from threading import Lock
 import functools
 
+from src.config import Config
+
 
 class TokenTracker:
-    """Track token usage and calculate costs for OpenAI API calls."""
+    """Track token usage and calculate costs for LLM API calls.
 
-    # OpenAI pricing per 1M tokens (USD) - Updated Jan 2025
-    PRICING = {
-        "gpt-4o": {"input": 2.50, "output": 10.00},
-        "gpt-4o-mini": {"input": 0.15, "output": 0.60},
-        "gpt-4": {"input": 30.0, "output": 60.0},
-        "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
-        # Google Gemini pricing per 1M tokens (USD) - Updated Dec 2025
-        "gemini-2.5-flash": {"input": 0.30, "output": 2.50},
-        "gemini-2.0-flash": {"input": 0.30, "output": 2.50},
-        "gemini-1.5-flash": {"input": 0.075, "output": 0.30},
-        "gemini-1.5-pro": {"input": 1.25, "output": 5.00},
-    }
+    Pricing is fetched from Config for easy updates.
+    """
 
-    # TTS pricing per 1M characters (USD)
-    TTS_PRICING = {
-        "tts-1": 15.00,
-        "tts-1-hd": 30.00,
-    }
+    @property
+    def PRICING(self) -> dict:
+        """Get LLM pricing from config."""
+        return Config.LLM_PRICING
 
-    # USD to INR conversion rate
-    USD_TO_INR = 85.0
+    @property
+    def TTS_PRICING(self) -> dict:
+        """Get TTS pricing from config."""
+        return Config.TTS_PRICING
+
+    @property
+    def USD_TO_INR(self) -> float:
+        """Get USD to INR conversion rate from config."""
+        return Config.USD_TO_INR
 
     def __init__(self):
         """Initialize token tracker."""

@@ -1,6 +1,6 @@
 """Firestore Service for managing user data, sessions, and messages."""
 from typing import List, Dict, Optional
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from google.cloud import firestore
 from src.firebase_admin_config import get_firestore_client
 from src.logging_config import get_logger
@@ -475,6 +475,169 @@ class FirestoreService:
         except Exception as e:
             logger.error(f"Error getting documents: {e}", exc_info=True)
             return []
+
+    # ==================== COST TRACKING ====================
+
+    BILLING_CYCLE_DAYS = 30  # Monthly billing cycle
+
+    async def update_user_cost(
+        self,
+        user_id: str,
+        cost_inr: float,
+        cost_usd: float,
+        input_tokens: int,
+        output_tokens: int
+    ) -> Optional[Dict]:
+        """
+        Update user's cumulative cost with monthly reset logic.
+
+        The cost tracking resets every 30 days from the billing_cycle_start date.
+        If billing cycle has expired, counters are reset before adding new costs.
+
+        Args:
+            user_id: Firebase UID
+            cost_inr: Cost incurred in INR for this request
+            cost_usd: Cost incurred in USD for this request
+            input_tokens: Input tokens used in this request
+            output_tokens: Output tokens used in this request
+
+        Returns:
+            Updated cost tracking data or None on error
+        """
+        try:
+            user_ref = self.db.collection('users').document(user_id)
+            user_doc = user_ref.get()
+
+            now = datetime.now(timezone.utc)
+
+            if not user_doc.exists:
+                # User document doesn't exist - create with initial cost tracking
+                initial_data = {
+                    'cost_tracking': {
+                        'total_cost_inr': cost_inr,
+                        'total_cost_usd': cost_usd,
+                        'total_input_tokens': input_tokens,
+                        'total_output_tokens': output_tokens,
+                        'billing_cycle_start': now,
+                        'last_updated': now
+                    },
+                    'created_at': firestore.SERVER_TIMESTAMP,
+                    'updated_at': firestore.SERVER_TIMESTAMP
+                }
+                user_ref.set(initial_data, merge=True)
+                logger.info(f"💰 Initialized cost tracking for new user {user_id}: ₹{cost_inr:.4f}")
+                return initial_data['cost_tracking']
+
+            user_data = user_doc.to_dict()
+            cost_tracking = user_data.get('cost_tracking', {})
+
+            # Check if billing cycle needs reset
+            billing_cycle_start = cost_tracking.get('billing_cycle_start')
+
+            # Handle Firestore timestamp conversion
+            if billing_cycle_start:
+                if hasattr(billing_cycle_start, 'timestamp'):
+                    # Firestore DatetimeWithNanoseconds
+                    billing_start_dt = datetime.fromtimestamp(billing_cycle_start.timestamp(), tz=timezone.utc)
+                elif isinstance(billing_cycle_start, datetime):
+                    billing_start_dt = billing_cycle_start.replace(tzinfo=timezone.utc) if billing_cycle_start.tzinfo is None else billing_cycle_start
+                else:
+                    # Invalid format, reset
+                    billing_start_dt = None
+            else:
+                billing_start_dt = None
+
+            # Check if 30 days have passed
+            should_reset = False
+            if billing_start_dt is None:
+                should_reset = True
+                logger.info(f"🔄 No billing cycle found for user {user_id}, initializing new cycle")
+            elif (now - billing_start_dt).days >= self.BILLING_CYCLE_DAYS:
+                should_reset = True
+                days_elapsed = (now - billing_start_dt).days
+                logger.info(f"🔄 Billing cycle expired for user {user_id} ({days_elapsed} days), resetting counters")
+
+            if should_reset:
+                # Reset counters and start new billing cycle
+                new_cost_tracking = {
+                    'total_cost_inr': cost_inr,
+                    'total_cost_usd': cost_usd,
+                    'total_input_tokens': input_tokens,
+                    'total_output_tokens': output_tokens,
+                    'billing_cycle_start': now,
+                    'last_updated': now
+                }
+            else:
+                # Add to existing cumulative values
+                new_cost_tracking = {
+                    'total_cost_inr': cost_tracking.get('total_cost_inr', 0) + cost_inr,
+                    'total_cost_usd': cost_tracking.get('total_cost_usd', 0) + cost_usd,
+                    'total_input_tokens': cost_tracking.get('total_input_tokens', 0) + input_tokens,
+                    'total_output_tokens': cost_tracking.get('total_output_tokens', 0) + output_tokens,
+                    'billing_cycle_start': billing_start_dt,
+                    'last_updated': now
+                }
+
+            # Update Firestore
+            user_ref.update({
+                'cost_tracking': new_cost_tracking,
+                'updated_at': firestore.SERVER_TIMESTAMP
+            })
+
+            logger.info(
+                f"💰 Updated cost for user {user_id}: "
+                f"+₹{cost_inr:.4f} (Total: ₹{new_cost_tracking['total_cost_inr']:.4f}) | "
+                f"Tokens: +{input_tokens + output_tokens} (Total: {new_cost_tracking['total_input_tokens'] + new_cost_tracking['total_output_tokens']})"
+            )
+
+            return new_cost_tracking
+
+        except Exception as e:
+            logger.error(f"Error updating user cost for {user_id}: {e}", exc_info=True)
+            return None
+
+    async def get_user_cost(self, user_id: str) -> Optional[Dict]:
+        """
+        Get user's current cost tracking data.
+
+        Args:
+            user_id: Firebase UID
+
+        Returns:
+            Cost tracking data or None
+        """
+        try:
+            user_ref = self.db.collection('users').document(user_id)
+            user_doc = user_ref.get()
+
+            if not user_doc.exists:
+                return None
+
+            user_data = user_doc.to_dict()
+            cost_tracking = user_data.get('cost_tracking', {})
+
+            # Calculate days remaining in billing cycle
+            billing_cycle_start = cost_tracking.get('billing_cycle_start')
+            days_remaining = self.BILLING_CYCLE_DAYS
+
+            if billing_cycle_start:
+                now = datetime.now(timezone.utc)
+                if hasattr(billing_cycle_start, 'timestamp'):
+                    billing_start_dt = datetime.fromtimestamp(billing_cycle_start.timestamp(), tz=timezone.utc)
+                elif isinstance(billing_cycle_start, datetime):
+                    billing_start_dt = billing_cycle_start.replace(tzinfo=timezone.utc) if billing_cycle_start.tzinfo is None else billing_cycle_start
+                else:
+                    billing_start_dt = now
+
+                days_elapsed = (now - billing_start_dt).days
+                days_remaining = max(0, self.BILLING_CYCLE_DAYS - days_elapsed)
+
+            cost_tracking['days_remaining'] = days_remaining
+            return cost_tracking
+
+        except Exception as e:
+            logger.error(f"Error getting user cost for {user_id}: {e}", exc_info=True)
+            return None
 
 
 # Create singleton instance

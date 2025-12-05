@@ -56,6 +56,40 @@ class Config:
     # Agent Limits
     MAX_TOOL_CALLS: int = int(os.getenv("MAX_TOOL_CALLS", "70"))
 
+    # Cost Tracking Configuration
+    # API overhead percentage added on top of LLM cost (e.g., 0.40 = 40%)
+    # Total cost = LLM cost * (1 + API_OVERHEAD_PERCENTAGE)
+    API_OVERHEAD_PERCENTAGE: float = float(os.getenv("API_OVERHEAD_PERCENTAGE", "0.40"))
+
+    # LLM Model Pricing per 1 Million tokens (USD) - Updated Dec 2025
+    # Source: https://ai.google.dev/gemini-api/docs/pricing
+    # Format: {"input": price_per_1M_input_tokens, "output": price_per_1M_output_tokens}
+    LLM_PRICING: dict = {
+        # Google Gemini Models
+        "gemini-3-pro": {"input": 2.00, "output": 12.00},        # Prompts ≤200k tokens
+        "gemini-3-pro-long": {"input": 4.00, "output": 18.00},   # Prompts >200k tokens
+        "gemini-2.5-pro": {"input": 1.25, "output": 10.00},      # Prompts ≤200k tokens
+        "gemini-2.5-pro-long": {"input": 2.50, "output": 15.00}, # Prompts >200k tokens
+        "gemini-2.5-flash": {"input": 0.30, "output": 2.50},
+        "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
+        "gemini-1.5-flash": {"input": 0.075, "output": 0.30},    # Legacy pricing
+        "gemini-1.5-pro": {"input": 1.25, "output": 5.00},       # Legacy pricing
+        # OpenAI Models
+        "gpt-4o": {"input": 2.50, "output": 10.00},
+        "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+        "gpt-4": {"input": 30.0, "output": 60.0},
+        "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
+    }
+
+    # TTS Pricing per 1 Million characters (USD)
+    TTS_PRICING: dict = {
+        "tts-1": 15.00,
+        "tts-1-hd": 30.00,
+    }
+
+    # USD to INR conversion rate
+    USD_TO_INR: float = float(os.getenv("USD_TO_INR", "85.0"))
+
     # Response Style Settings
     DEFAULT_RESPONSE_STYLE: str = "Normal"
     RESPONSE_STYLES: dict = {
