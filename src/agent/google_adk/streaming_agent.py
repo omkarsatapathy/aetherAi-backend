@@ -467,8 +467,9 @@ Answer:"""
         logger.info(f"💰 Cost: ₹{cost_data['total_cost_inr']:.4f} (${cost_data['total_cost_usd']:.6f})")
         logger.info("=" * 80)
 
-        # Update user's cumulative cost in Firestore (non-blocking)
+        # Update user's cumulative cost in Firestore and get updated monthly total
         # Apply API overhead percentage (e.g., 40% for API services on top of LLM cost)
+        monthly_cost_data = None
         if user_id and (cost_data['total_cost_inr'] > 0 or cost_data['input_tokens'] > 0):
             api_multiplier = 1 + Config.API_OVERHEAD_PERCENTAGE  # e.g., 1.40 for 40% overhead
             total_cost_inr_with_api = cost_data['total_cost_inr'] * api_multiplier
@@ -477,19 +478,19 @@ Answer:"""
             logger.info(f"💵 API overhead applied: {Config.API_OVERHEAD_PERCENTAGE * 100:.0f}% | "
                        f"LLM: ₹{cost_data['total_cost_inr']:.4f} → Total: ₹{total_cost_inr_with_api:.4f}")
 
-            async def update_user_cost_background():
-                try:
-                    await firestore_service.update_user_cost(
-                        user_id=user_id,
-                        cost_inr=total_cost_inr_with_api,
-                        cost_usd=total_cost_usd_with_api,
-                        input_tokens=cost_data['input_tokens'],
-                        output_tokens=cost_data['output_tokens']
-                    )
-                except Exception as cost_error:
-                    logger.error(f"Failed to update user cost: {cost_error}", exc_info=True)
-
-            asyncio.create_task(update_user_cost_background())
+            try:
+                # Update cost and get the new monthly total (synchronously to include in response)
+                monthly_cost_data = await firestore_service.update_user_cost(
+                    user_id=user_id,
+                    cost_inr=total_cost_inr_with_api,
+                    cost_usd=total_cost_usd_with_api,
+                    input_tokens=cost_data['input_tokens'],
+                    output_tokens=cost_data['output_tokens']
+                )
+                if monthly_cost_data:
+                    logger.info(f"💰 Monthly cost updated: ₹{monthly_cost_data.get('total_cost_inr', 0):.4f}")
+            except Exception as cost_error:
+                logger.error(f"Failed to update user cost: {cost_error}", exc_info=True)
 
         # Append maps widget metadata to response if captured
         final_response = complete_response
@@ -585,6 +586,16 @@ Answer:"""
             },
             'location_required': location_required  # Add flag for frontend
         }
+
+        # Add monthly cost data to completion event
+        if monthly_cost_data:
+            completion_data['monthly_cost'] = {
+                'total_cost_inr': monthly_cost_data.get('total_cost_inr', 0),
+                'total_cost_usd': monthly_cost_data.get('total_cost_usd', 0),
+                'total_input_tokens': monthly_cost_data.get('total_input_tokens', 0),
+                'total_output_tokens': monthly_cost_data.get('total_output_tokens', 0),
+                'days_remaining': monthly_cost_data.get('days_remaining', 30)
+            }
 
         # Add question field if questions were detected
         if question_data:

@@ -590,6 +590,14 @@ class FirestoreService:
                 f"Tokens: +{input_tokens + output_tokens} (Total: {new_cost_tracking['total_input_tokens'] + new_cost_tracking['total_output_tokens']})"
             )
 
+            # Calculate days remaining in billing cycle for the response
+            billing_start = new_cost_tracking.get('billing_cycle_start')
+            if billing_start and isinstance(billing_start, datetime):
+                days_elapsed = (now - billing_start).days
+                new_cost_tracking['days_remaining'] = max(0, self.BILLING_CYCLE_DAYS - days_elapsed)
+            else:
+                new_cost_tracking['days_remaining'] = self.BILLING_CYCLE_DAYS
+
             return new_cost_tracking
 
         except Exception as e:
