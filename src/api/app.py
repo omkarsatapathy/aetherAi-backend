@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from src.database import DatabaseManager
 from src.config import Config
 from src.logging_config import setup_logging
-from .routes import chat, sessions, messages, documents, models, voice, setup, image, config, gmail_auth, user_info
+from .routes import chat, sessions, messages, documents, models, voice, setup, image, config, gmail_auth, user_info, feedback
 
 # Setup logging
 logger = setup_logging(Config.LOG_LEVEL, Config.LOG_TO_FILE, Config.LOG_TO_CONSOLE)
@@ -51,6 +51,9 @@ def create_app() -> FastAPI:
     app.include_router(image.router)
     app.include_router(config.router)
     app.include_router(user_info.router)
+    app.include_router(feedback.router)  # User feedback routes
+    
+    logger.info("✅ All routers registered, including feedback router")
     
     # Root endpoint
     @app.get("/")

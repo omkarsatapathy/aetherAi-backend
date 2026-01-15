@@ -71,6 +71,9 @@ async def chat_stream_post(request: ChatStreamRequest, current_user: dict = Depe
     if request.responses:
         logger.info(f"[ADK] Chat request - Preference Responses: {len(request.responses)} answers")
 
+    # Print conversation history before sending to Agent
+    print(f"\n[CHAT HISTORY] Sending to Agent - History: {request.conversation_history}\n")
+
     return StreamingResponse(
         create_adk_streaming_response(
             message=message,
@@ -212,6 +215,9 @@ async def chat_test(request: ChatStreamRequest):
         logger.info(f"[TEST] Tool: {request.tool}")
     if request.responses:
         logger.info(f"[TEST] Preference Responses: {len(request.responses)} answers")
+
+    # Print conversation history before sending to Agent
+    print(f"\n[CHAT HISTORY]: \n\n Sending to Agent - History: {request.conversation_history}\n")
 
     return StreamingResponse(
         create_adk_streaming_response(

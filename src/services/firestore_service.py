@@ -105,6 +105,7 @@ class FirestoreService:
             # Create user document with persona
             user_data = {
                 'persona': persona_with_timestamp,
+                'feedback_score': 0,  # Initialize feedback score for new user
                 'created_at': firestore.SERVER_TIMESTAMP,
                 'updated_at': firestore.SERVER_TIMESTAMP
             }
@@ -602,6 +603,7 @@ class FirestoreService:
                         'billing_cycle_start': now,
                         'last_updated': now
                     },
+                    'feedback_score': 0,  # Initialize feedback score
                     'created_at': firestore.SERVER_TIMESTAMP,
                     'updated_at': firestore.SERVER_TIMESTAMP
                 }
@@ -685,6 +687,53 @@ class FirestoreService:
             logger.error(f"Error updating user cost for {user_id}: {e}", exc_info=True)
             return None
 
+    async def update_feedback_score(self, user_id: str, is_positive: bool) -> Optional[Dict]:
+        """
+        Update user's feedback score (+10 for positive, -10 for negative).
+
+        Args:
+            user_id: Firebase UID
+            is_positive: True for positive feedback, False for negative
+
+        Returns:
+            Updated feedback score or None
+        """
+        try:
+            user_ref = self.db.collection('users').document(user_id)
+            user_doc = user_ref.get()
+
+            # Initialize user document if it doesn't exist
+            if not user_doc.exists:
+                initial_data = {
+                    'feedback_score': 10 if is_positive else -10,
+                    'created_at': firestore.SERVER_TIMESTAMP,
+                    'updated_at': firestore.SERVER_TIMESTAMP
+                }
+                user_ref.set(initial_data, merge=True)
+                logger.info(f"✨ Initialized feedback score for new user {user_id}: {initial_data['feedback_score']}")
+                return {'feedback_score': initial_data['feedback_score']}
+
+            # Get current score and update
+            user_data = user_doc.to_dict()
+            current_score = user_data.get('feedback_score', 0)
+            score_change = 10 if is_positive else -10
+            new_score = current_score + score_change
+
+            # Update feedback score
+            user_ref.update({
+                'feedback_score': new_score,
+                'updated_at': firestore.SERVER_TIMESTAMP
+            })
+
+            feedback_type = "positive" if is_positive else "negative"
+            logger.info(f"📊 Updated feedback for {user_id}: {feedback_type} ({score_change:+d}) -> Total: {new_score}")
+            
+            return {'feedback_score': new_score}
+
+        except Exception as e:
+            logger.error(f"Error updating feedback score for {user_id}: {e}", exc_info=True)
+            return None
+
     async def get_user_cost(self, user_id: str) -> Optional[Dict]:
         """
         Get user's current cost tracking data.
@@ -722,6 +771,11 @@ class FirestoreService:
                 days_remaining = max(0, self.BILLING_CYCLE_DAYS - days_elapsed)
 
             cost_tracking['days_remaining'] = days_remaining
+            
+            # Include feedback_score in response
+            feedback_score = user_data.get('feedback_score', 0)
+            cost_tracking['feedback_score'] = feedback_score
+            
             return cost_tracking
 
         except Exception as e:

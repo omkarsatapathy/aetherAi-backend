@@ -163,6 +163,26 @@ Cultural Background: {ethnicities_str}
         if style_name != "Normal":
             logger.info(f"🎨 Using response style: {style_name}")
 
+        # Format conversation history for context
+        history_context = ""
+        if conversation_history and len(conversation_history) > 0:
+            logger.info(f"📜 Adding {len(conversation_history)} messages from conversation history")
+            history_messages = []
+            for msg in conversation_history:
+                role = msg.get('role', 'user')
+                content = msg.get('content', '')
+                # Skip empty messages
+                if content.strip():
+                    history_messages.append(f"{role.upper()}: {content}")
+            
+            if history_messages:
+                history_context = f"""[CONVERSATION HISTORY]
+{chr(10).join(history_messages)}
+[END HISTORY - Current message below]
+
+"""
+                logger.info(f"✅ Formatted {len(history_messages)} history messages")
+
         # Handle preference responses (Phase 2 of shopping workflow)
         if preference_responses:
             logger.info(f"📋 Received {len(preference_responses)} preference responses - Phase 2: Product Search")
@@ -187,7 +207,7 @@ Cultural Background: {ethnicities_str}
                 formatted_preferences.append(f"- {question}: {selected_str}")
 
             preferences_text = '\n'.join(formatted_preferences)
-            final_message = f"""{persona_context}[SHOPPING PREFERENCES COLLECTED - PHASE 2]
+            final_message = f"""{history_context}{persona_context}[SHOPPING PREFERENCES COLLECTED - PHASE 2]
 
 User has answered the preference questions. Here are their preferences:
 {preferences_text}
@@ -202,13 +222,13 @@ Then delegate to ProductSummarizationAgent to format the results."""
             logger.info(f"✅ Formatted preferences for product search")
         else:
             # Handle conditional routing via tool parameter
-            # Prepend persona context to enrich the message
-            final_message = f"{persona_context}{message}" if persona_context else message
+            # Prepend history and persona context to enrich the message
+            final_message = f"{history_context}{persona_context}{message}"
             if tool:
                 logger.info(f"🎯 Explicit tool routing requested: {tool}")
                 if tool == "shopping_assist":
                     # Prepend routing hint to ensure ShoppingAssistAgent is invoked
-                    final_message = f"{persona_context}[USER WANTS TO SHOP/BUY PRODUCTS] {message}"
+                    final_message = f"{history_context}{persona_context}[USER WANTS TO SHOP/BUY PRODUCTS] {message}"
                     logger.info(f"🛍️ Routing to ShoppingAssistAgent")
 
         # Log the enriched message for debugging
