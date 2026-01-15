@@ -1,9 +1,15 @@
 """Firebase Admin SDK Configuration and Initialization."""
 import os
 import json
+from pathlib import Path
+from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import credentials, auth, firestore, storage
 from src.logging_config import get_logger
+
+# Load .env file to ensure environment variables are available
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 logger = get_logger("chatbot.firebase_admin")
 

@@ -132,6 +132,32 @@ async def create_adk_streaming_response(
         logger.info(f"Starting ADK streaming agent with session: {session_id}")
         logger.info(f"📩 User message: {message}")
 
+        # Fetch user persona for message enrichment
+        user_persona = None
+        persona_context = ""
+        if user_id:
+            try:
+                user_persona = await firestore_service.get_user_persona(user_id)
+                if user_persona:
+                    logger.info(f"📋 User persona loaded for {user_id}: {user_persona}")
+                    # Build persona context for agent (invisible to user)
+                    gender = user_persona.get('gender', 'Unknown')
+                    age_group = user_persona.get('ageGroup', 'Unknown')
+                    country = user_persona.get('country', 'Unknown')
+                    ethnicities = user_persona.get('ethnicities', [])
+                    ethnicities_str = ', '.join(ethnicities) if ethnicities else 'Not specified'
+
+                    persona_context = f"""[INTERNAL USER CONTEXT - DO NOT MENTION IN RESPONSE]
+User Profile: {gender}, {age_group}, from {country}
+Cultural Background: {ethnicities_str}
+[END INTERNAL CONTEXT]
+
+"""
+                else:
+                    logger.debug(f"📋 No persona found for user {user_id}")
+            except Exception as persona_error:
+                logger.warning(f"Failed to fetch user persona: {persona_error}")
+
         # Build system prompt with response style modifier (if needed for state)
         style_name = response_style or Config.DEFAULT_RESPONSE_STYLE
         if style_name != "Normal":
@@ -161,7 +187,7 @@ async def create_adk_streaming_response(
                 formatted_preferences.append(f"- {question}: {selected_str}")
 
             preferences_text = '\n'.join(formatted_preferences)
-            final_message = f"""[SHOPPING PREFERENCES COLLECTED - PHASE 2]
+            final_message = f"""{persona_context}[SHOPPING PREFERENCES COLLECTED - PHASE 2]
 
 User has answered the preference questions. Here are their preferences:
 {preferences_text}
@@ -176,13 +202,18 @@ Then delegate to ProductSummarizationAgent to format the results."""
             logger.info(f"✅ Formatted preferences for product search")
         else:
             # Handle conditional routing via tool parameter
-            final_message = message
+            # Prepend persona context to enrich the message
+            final_message = f"{persona_context}{message}" if persona_context else message
             if tool:
                 logger.info(f"🎯 Explicit tool routing requested: {tool}")
                 if tool == "shopping_assist":
                     # Prepend routing hint to ensure ShoppingAssistAgent is invoked
-                    final_message = f"[USER WANTS TO SHOP/BUY PRODUCTS] {message}"
+                    final_message = f"{persona_context}[USER WANTS TO SHOP/BUY PRODUCTS] {message}"
                     logger.info(f"🛍️ Routing to ShoppingAssistAgent")
+
+        # Log the enriched message for debugging
+        if persona_context:
+            logger.info(f"🔄 Enriched message with persona context (first 200 chars): {final_message[:200]}...")
 
         # Create the message content
         content = types.Content(

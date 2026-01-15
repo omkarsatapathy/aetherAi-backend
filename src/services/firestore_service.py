@@ -70,6 +70,87 @@ class FirestoreService:
             logger.error(f"Error getting user {user_id}: {e}", exc_info=True)
             return None
 
+    async def save_user_persona(self, user_id: str, persona_data: dict) -> dict:
+        """
+        Save user persona info for first-time users. Creates user document.
+        This is a one-time operation - returns error if persona already exists.
+
+        Args:
+            user_id: Firebase UID
+            persona_data: Persona data (country, ageGroup, gender, ethnicities)
+
+        Returns:
+            Created persona data with timestamps
+
+        Raises:
+            ValueError: If persona already exists for this user
+        """
+        try:
+            user_ref = self.db.collection('users').document(user_id)
+            user_doc = user_ref.get()
+
+            # Check if persona already exists
+            if user_doc.exists:
+                existing_data = user_doc.to_dict()
+                if existing_data.get('persona'):
+                    logger.warning(f"Persona already exists for user {user_id}")
+                    raise ValueError(f"Persona already exists for user {user_id}")
+
+            # Add timestamp to persona data
+            persona_with_timestamp = {
+                **persona_data,
+                'collected_at': firestore.SERVER_TIMESTAMP
+            }
+
+            # Create user document with persona
+            user_data = {
+                'persona': persona_with_timestamp,
+                'created_at': firestore.SERVER_TIMESTAMP,
+                'updated_at': firestore.SERVER_TIMESTAMP
+            }
+
+            user_ref.set(user_data, merge=True)
+
+            # Read back the document to get actual timestamp values
+            created_doc = user_ref.get()
+            result = created_doc.to_dict() if created_doc.exists else user_data
+
+            logger.info(f"📋 User persona saved for first-time user: {user_id}")
+            return result.get('persona', persona_data)
+
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Error saving persona for user {user_id}: {e}", exc_info=True)
+            raise
+
+    async def get_user_persona(self, user_id: str) -> Optional[dict]:
+        """
+        Retrieve user persona for message enrichment.
+        Fast single-document read from users/{user_id}.
+
+        Args:
+            user_id: Firebase UID
+
+        Returns:
+            Persona data or None if not found
+        """
+        try:
+            user_ref = self.db.collection('users').document(user_id)
+            doc = user_ref.get()
+
+            if doc.exists:
+                user_data = doc.to_dict()
+                persona = user_data.get('persona')
+                if persona:
+                    logger.debug(f"📋 Retrieved persona for user {user_id}")
+                    return persona
+            return None
+
+        except Exception as e:
+            logger.error(f"Error getting persona for user {user_id}: {e}", exc_info=True)
+            return None
+
     # ==================== SESSION MANAGEMENT ====================
 
     async def create_session(self, user_id: str, session_id: str, title: str) -> dict:

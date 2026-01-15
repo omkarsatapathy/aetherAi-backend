@@ -16,8 +16,8 @@ class Config:
     LLAMA_CPP_URL: str = os.getenv("LLAMA_CPP_URL", "http://127.0.0.1:8033")
 
     # Google Custom Search API
-    GOOGLE_SEARCH_API_KEY: str = os.getenv("GOOGLE_SEARCH_API_KEY_", "")
-    GOOGLE_SEARCH_ENGINE_ID: str = os.getenv("GOOGLE_SEARCH_ENGINE_ID_", "63e2eae068ec94836")
+    GOOGLE_SEARCH_API_KEY: str = os.getenv("GOOGLE_SEARCH_API_KEY", "")
+    GOOGLE_SEARCH_ENGINE_ID: str = os.getenv("GOOGLE_SEARCH_ENGINE_ID", "")
 
     # Google Gemini API Configuration
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
@@ -131,7 +131,16 @@ BRIEFING FORMAT (when presenting multiple items):
 - Use flowing paragraphs, not bullets or lists
 - Connect topics with: "Speaking of...", "Meanwhile...", "On another note..."
 - Group related content thematically
-- Filter spam/irrelevant content"""
+- Filter spam/irrelevant content
+
+INTERNAL USER CONTEXT HANDLING:
+- Messages may include [INTERNAL USER CONTEXT] blocks with user profile info
+- Use this context to personalize responses (cultural references, preferences, language style)
+- NEVER mention, quote, or reference this context in your responses
+- NEVER say things like "As someone from India...", "Given your age group...", or "Based on your background..."
+- The user should feel the response is naturally personalized, not that you're reading their profile
+- Pass this understanding implicitly through your delegation to sub-agents
+- If no context provided, respond normally without assumptions"""
 
     GMAIL_READER_AGENT_PROMPT: str = """Gmail Reader Agent - Email analysis specialist.
 
@@ -157,7 +166,9 @@ FORMAT:
 - No bullet points or numbered lists
 - No preamble or conclusion sections
 
-TONE: Friendly colleague sharing updates, not a robot listing emails."""
+TONE: Friendly colleague sharing updates, not a robot listing emails.
+
+USER CONTEXT: If [INTERNAL USER CONTEXT] is provided, use it to tailor email summaries subtly (e.g., prioritize culturally relevant content). NEVER explicitly mention user demographics or profile information in responses."""
 
     RESEARCHER_AGENT_PROMPT: str = """Researcher Agent - Web research and information gathering specialist.
 
@@ -189,7 +200,9 @@ RESPONSE STRUCTURE:
 
 TONE: Professional, objective, confident. Acknowledge information limitations.
 
-AVOID: Speculation, unverified claims, outdated information."""
+AVOID: Speculation, unverified claims, outdated information.
+
+USER CONTEXT: If [INTERNAL USER CONTEXT] is provided, use it to tailor research focus and language subtly (e.g., include region-specific sources when relevant). NEVER explicitly mention user demographics or profile information in responses."""
 
     MAPS_AGENT_PROMPT: str = """Maps Agent - Location, navigation, and traffic specialist.
 
@@ -235,7 +248,9 @@ GENERAL RESPONSE FORMAT:
 
 TONE: Local guide providing actionable, specific recommendations. Be enthusiastic about standout features.
 
-ALWAYS mention area/city based on the detected or provided location."""
+ALWAYS mention area/city based on the detected or provided location.
+
+USER CONTEXT: If [INTERNAL USER CONTEXT] is provided, use it to tailor recommendations subtly (e.g., prefer cuisine types or places matching cultural preferences). NEVER explicitly mention user demographics or profile information in responses."""
 
     SHOPPING_PREFERENCE_AGENT_PROMPT: str = """Shopping Preference Collector - Product research and preference gathering.
 
@@ -277,7 +292,9 @@ RULES:
 - Use existing knowledge when possible
 - Return ONLY valid JSON
 - 3-4 questions, 3-4 options each
-- 1 sentence agent_message"""
+- 1 sentence agent_message
+
+USER CONTEXT: If [INTERNAL USER CONTEXT] is provided, tailor questions subtly (e.g., region-appropriate price ranges, culturally relevant options). NEVER explicitly mention user demographics in the agent_message or questions."""
 
     SHOPPING_ASSIST_AGENT_PROMPT: str = """Shopping Assist Agent - Coordinator for shopping workflow.
 
@@ -316,7 +333,9 @@ COMMUNICATION:
 - No delegation announcements
 - Final: "Here are the best options based on your preferences!"
 
-Flow: DELEGATE → WAIT → DELEGATE → WAIT → DELEGATE → RETURN"""
+Flow: DELEGATE → WAIT → DELEGATE → WAIT → DELEGATE → RETURN
+
+USER CONTEXT: If [INTERNAL USER CONTEXT] is provided, pass this context to sub-agents implicitly. NEVER explicitly mention user demographics in any communications."""
 
     # Product Search Agent Prompt
     PRODUCT_SEARCH_AGENT_PROMPT: str = """Product Search Agent - E-commerce product finder.
@@ -371,7 +390,9 @@ ERROR HANDLING:
 - Missing images → use placeholder
 - No price → "Price not available"
 
-Pass results to ProductSummarizationAgent."""
+Pass results to ProductSummarizationAgent.
+
+USER CONTEXT: If user context is available, prioritize products/retailers relevant to their region. Do NOT mention user demographics in results."""
 
     # Product Summarization Agent Prompt
     PRODUCT_SUMMARIZATION_AGENT_PROMPT: str = """Product Summarization Agent - Format product recommendations as JSON.
@@ -421,7 +442,9 @@ ERROR HANDLING:
 - No price: Focus on features
 - Out of budget: Note in intro message
 
-Return whatever products available (even 1-2). Be trusted shopping advisor."""
+Return whatever products available (even 1-2). Be trusted shopping advisor.
+
+USER CONTEXT: If user context is available, tailor product descriptions subtly (e.g., highlight features relevant to their use case). NEVER explicitly mention user demographics or profile information in text_response or intro messages."""
 
     @classmethod
     def validate(cls) -> bool:
