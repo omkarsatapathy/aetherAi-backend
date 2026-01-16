@@ -11,11 +11,12 @@ OPTIMIZED VERSION:
 """
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from functools import lru_cache
 import asyncio
+import time
 from google import genai
 from src.middleware.auth_middleware import get_current_user, get_user_id_from_token
 from src.services.firestore_service import firestore_service
@@ -33,7 +34,7 @@ MODEL_ID = "gemini-2.0-flash-exp"
 DEFAULT_TIMEZONE = "Asia/Kolkata"
 
 # Pre-compiled instruction suffix (avoids string concat on each request)
-INSTRUCTION_SUFFIX = "\n\nInstructions: You should respond with funny and engaging answers. Always generate new and creative responses. Use the suggested greeting from the time context when appropriate (e.g., start with 'Good morning!' if it's morning in their timezone). Be aware of the current time and day when answering."
+INSTRUCTION_SUFFIX = "\n\nInstructions: You should respond with funny and engaging answers. Always generate new and creative responses. Use the suggested greeting from the time context when appropriate (e.g., start with 'Good morning!' if it's morning in their timezone). IMPORTANT: If the user's name is provided in the context, greet them by their first name (e.g., 'Good morning, John!'). Be aware of the current time and day when answering."
 INSTRUCTION_SUFFIX_TEST = "\n\nInstructions: You should respond with funny and engaging answers. Use the suggested greeting from the time context when appropriate."
 
 # Singleton Gemini client - initialized once, reused across requests
@@ -45,6 +46,25 @@ def get_gemini_client() -> genai.Client:
     if _gemini_client is None:
         _gemini_client = genai.Client(api_key=Config.GEMINI_API_KEY)
     return _gemini_client
+
+# In-memory cache for user context (first_name, country, persona_context)
+# Cache TTL: 5 minutes (user data rarely changes during a session)
+_user_context_cache: Dict[str, Tuple[str, Optional[str], Optional[str], float]] = {}
+CACHE_TTL = 300  # 5 minutes in seconds
+
+def _get_cached_user_context(user_id: str) -> Optional[Tuple[str, Optional[str], Optional[str]]]:
+    """Get cached user context if still valid."""
+    if user_id in _user_context_cache:
+        persona_context, country, first_name, timestamp = _user_context_cache[user_id]
+        if time.time() - timestamp < CACHE_TTL:
+            return persona_context, country, first_name
+        # Expired, remove from cache
+        del _user_context_cache[user_id]
+    return None
+
+def _set_cached_user_context(user_id: str, persona_context: str, country: Optional[str], first_name: Optional[str]):
+    """Cache user context with current timestamp."""
+    _user_context_cache[user_id] = (persona_context, country, first_name, time.time())
 
 # Cached timezone objects (ZoneInfo objects are immutable and thread-safe)
 @lru_cache(maxsize=64)
@@ -175,25 +195,53 @@ class QuickResponseResponse(BaseModel):
         extra = 'ignore'
 
 
-async def _fetch_persona_and_build_context(user_id: str) -> Tuple[str, Optional[str]]:
+async def _fetch_persona_and_build_context(user_id: str) -> Tuple[str, Optional[str], Optional[str]]:
     """
     Fetch user persona and build context string in one async operation.
-    Returns: (persona_context_string, country)
+    OPTIMIZED: Uses in-memory cache (5 min TTL) to avoid repeated Firestore reads.
+    Returns: (persona_context_string, country, first_name)
     """
     if not user_id:
-        return "", None
+        return "", None, None
+    
+    # Check cache first (avoids Firestore read)
+    cached = _get_cached_user_context(user_id)
+    if cached:
+        return cached
     
     try:
-        user_persona = await firestore_service.get_user_persona(user_id)
-        if user_persona:
-            gender = user_persona.get('gender', 'Unknown')
-            country = user_persona.get('country', 'Unknown')
-            persona_context = f"[INTERNAL USER CONTEXT - DO NOT MENTION IN RESPONSE]\nUser Profile: {gender}, from {country}\n[END INTERNAL CONTEXT]\n\n"
-            return persona_context, country
+        # Fetch full user document to get displayName and persona (single read)
+        user_data = await firestore_service.get_user(user_id)
+        if user_data:
+            # Extract first name from displayName (optimized: use partition for single-pass)
+            display_name = user_data.get('displayName', '')
+            first_name = display_name.partition(' ')[0] if display_name else None
+            
+            # Get persona data
+            user_persona = user_data.get('persona')
+            
+            if user_persona:
+                gender = user_persona.get('gender', 'Unknown')
+                country = user_persona.get('country', 'Unknown')
+                
+                # Build context (optimized: single f-string, avoid conditionals in hot path)
+                if first_name:
+                    persona_context = f"[INTERNAL USER CONTEXT - DO NOT MENTION IN RESPONSE]\nUser's Name: {first_name}\nUser Profile: {gender}, from {country}\n[END INTERNAL CONTEXT]\n\n"
+                else:
+                    persona_context = f"[INTERNAL USER CONTEXT - DO NOT MENTION IN RESPONSE]\nUser Profile: {gender}, from {country}\n[END INTERNAL CONTEXT]\n\n"
+                
+                # Cache result
+                _set_cached_user_context(user_id, persona_context, country, first_name)
+                return persona_context, country, first_name
+            elif first_name:
+                # Even without persona, include first name
+                persona_context = f"[INTERNAL USER CONTEXT - DO NOT MENTION IN RESPONSE]\nUser's Name: {first_name}\n[END INTERNAL CONTEXT]\n\n"
+                _set_cached_user_context(user_id, persona_context, None, first_name)
+                return persona_context, None, first_name
     except Exception:
         pass  # Silently fail - non-critical
     
-    return "", None
+    return "", None, None
 
 
 @router.post("/quick-response")
@@ -215,7 +263,7 @@ async def quick_response(
         client = get_gemini_client()
         
         # Await persona result (was running in parallel)
-        persona_context, country = await persona_task
+        persona_context, country, first_name = await persona_task
         
         # Generate time context (very fast with optimizations)
         time_context = get_time_based_greeting_context(country)
