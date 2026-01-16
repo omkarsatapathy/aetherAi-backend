@@ -21,6 +21,54 @@ class UserInfoRequest(BaseModel):
     timestamp: str
 
 
+@router.get("/check-persona")
+async def check_user_persona(
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Check if a user has already submitted persona information.
+
+    This endpoint:
+    - Requires Firebase authentication
+    - Returns whether the user is a new user (no persona) or existing user (has persona)
+    - Used during signup flow to determine if user needs to fill persona info
+
+    Args:
+        current_user: Authenticated user from Firebase token
+
+    Returns:
+        JSON with:
+        - has_persona: boolean indicating if user has persona data
+        - is_new_user: boolean indicating if this is a new user
+        - message: descriptive message
+
+    Raises:
+        HTTPException 401: If not authenticated
+        HTTPException 500: On server error
+    """
+    token_user_id = get_user_id_from_token(current_user)
+
+    try:
+        # Check if user has persona in Firestore
+        has_persona = await firestore_service.user_has_persona(token_user_id)
+
+        logger.info(f"Persona check for user {token_user_id}: has_persona={has_persona}")
+
+        return {
+            "success": True,
+            "has_persona": has_persona,
+            "is_new_user": not has_persona,
+            "message": "User is existing" if has_persona else "User is new"
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to check user persona: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to check user persona: {str(e)}"
+        )
+
+
 @router.post("/info")
 async def save_user_info(
     request: UserInfoRequest,

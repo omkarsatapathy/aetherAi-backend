@@ -33,3 +33,7 @@ google-adk>=1.0.0
 
 # LiteLLM for multi-provider model support (OpenAI, Anthropic, Ollama, etc.)
 litellm>=1.50.0
+
+# Redis for production caching (optional - only needed for Cloud Run with Memorystore)
+# Uncomment when deploying to production with Redis:
+# redis>=5.0.0

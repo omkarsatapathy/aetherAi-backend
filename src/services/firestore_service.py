@@ -5,6 +5,13 @@ from google.cloud import firestore
 from src.firebase_admin_config import get_firestore_client
 from src.logging_config import get_logger
 
+# Use production-ready cache that works in Cloud Run
+try:
+    from src.utils.cache_production import cache
+except ImportError:
+    # Fallback to simple cache for backward compatibility
+    from src.utils.cache import cache
+
 logger = get_logger("chatbot.services.firestore")
 
 
@@ -152,6 +159,34 @@ class FirestoreService:
             logger.error(f"Error getting persona for user {user_id}: {e}", exc_info=True)
             return None
 
+    async def user_has_persona(self, user_id: str) -> bool:
+        """
+        Check if a user has submitted persona information.
+        Used during signup flow to determine if user is new or existing.
+
+        Args:
+            user_id: Firebase UID
+
+        Returns:
+            True if user has persona data, False otherwise
+        """
+        try:
+            user_ref = self.db.collection('users').document(user_id)
+            doc = user_ref.get()
+
+            if doc.exists:
+                user_data = doc.to_dict()
+                has_persona = bool(user_data.get('persona'))
+                logger.debug(f"User {user_id} has_persona: {has_persona}")
+                return has_persona
+
+            logger.debug(f"User {user_id} document not found")
+            return False
+
+        except Exception as e:
+            logger.error(f"Error checking persona for user {user_id}: {e}", exc_info=True)
+            return False
+
     # ==================== SESSION MANAGEMENT ====================
 
     async def create_session(self, user_id: str, session_id: str, title: str) -> dict:
@@ -169,24 +204,32 @@ class FirestoreService:
         try:
             session_ref = self.db.collection('users').document(user_id).collection('sessions').document(session_id)
 
+            # Use client-side timestamp to avoid read-back round trip
+            now = datetime.now(timezone.utc)
+            
             session_data = {
                 'session_id': session_id,
                 'title': title,
                 'has_documents': False,
                 'vector_db_path': None,
-                'created_at': firestore.SERVER_TIMESTAMP,
-                'updated_at': firestore.SERVER_TIMESTAMP
+                'created_at': now,
+                'updated_at': now
             }
 
             session_ref.set(session_data)
 
-            # Read back the document to get actual timestamp values
-            # (SERVER_TIMESTAMP is a Sentinel object that can't be serialized)
-            created_doc = session_ref.get()
-            result = created_doc.to_dict() if created_doc.exists else session_data
+            # Cache the newly created session
+            cache_key = f"session:{user_id}:{session_id}"
+            cache.set(cache_key, session_data, ttl_seconds=300)
+            
+            # Pre-cache empty messages list (new session has no messages)
+            messages_cache_key = f"messages:{user_id}:{session_id}"
+            cache.set(messages_cache_key, [], ttl_seconds=60)
 
+            # Return session data immediately without read-back
+            # This saves ~1 second by avoiding an extra Firestore round trip
             logger.info(f"Session created: {session_id} for user {user_id}")
-            return result
+            return session_data
 
         except Exception as e:
             logger.error(f"Error creating session: {e}", exc_info=True)
@@ -203,12 +246,22 @@ class FirestoreService:
         Returns:
             Session data or None
         """
+        # Check cache first
+        cache_key = f"session:{user_id}:{session_id}"
+        cached = cache.get(cache_key)
+        if cached:
+            logger.debug(f"Session {session_id} retrieved from cache")
+            return cached
+        
         try:
             session_ref = self.db.collection('users').document(user_id).collection('sessions').document(session_id)
             doc = session_ref.get()
 
             if doc.exists:
-                return doc.to_dict()
+                session_data = doc.to_dict()
+                # Cache for 5 minutes
+                cache.set(cache_key, session_data, ttl_seconds=300)
+                return session_data
             return None
 
         except Exception as e:
@@ -273,6 +326,9 @@ class FirestoreService:
                     'title': title,
                     'updated_at': firestore.SERVER_TIMESTAMP
                 })
+                # Invalidate cache
+                cache_key = f"session:{user_id}:{session_id}"
+                cache.delete(cache_key)
                 logger.info(f"✅ Session {session_id} title forcefully updated to '{title}' (manual edit)")
                 return True
 
@@ -282,6 +338,9 @@ class FirestoreService:
                     'title': title,
                     'updated_at': firestore.SERVER_TIMESTAMP
                 })
+                # Invalidate cache
+                cache_key = f"session:{user_id}:{session_id}"
+                cache.delete(cache_key)
                 logger.info(f"✅ Session {session_id} title updated from 'New Chat' to '{title}'")
                 return True
             else:
@@ -423,24 +482,29 @@ class FirestoreService:
         try:
             messages_ref = self.db.collection('users').document(user_id).collection('sessions').document(session_id).collection('messages')
 
+            # Use client-side timestamp to avoid read-back
+            now = datetime.now(timezone.utc)
+            
             message_data = {
                 'role': role,
                 'content': content,
                 'audio_file_ref': audio_ref,
-                'timestamp': firestore.SERVER_TIMESTAMP
+                'timestamp': now
             }
 
             # Add message
             doc_ref = messages_ref.add(message_data)
             message_id = doc_ref[1].id
 
-            # Read back the document to get actual timestamp values
-            # (SERVER_TIMESTAMP is a Sentinel object that can't be serialized)
-            created_doc = doc_ref[1].get()
-            result = created_doc.to_dict() if created_doc.exists else message_data
+            # Return immediately without read-back
+            result = message_data.copy()
             result['message_id'] = message_id
 
-            # Update session timestamp
+            # Invalidate messages cache since we added a new message
+            cache_key = f"messages:{user_id}:{session_id}"
+            cache.delete(cache_key)
+
+            # Update session timestamp (async, no await to avoid blocking)
             await self.update_session_timestamp(user_id, session_id)
 
             logger.info(f"Message added to session {session_id}")
@@ -461,10 +525,28 @@ class FirestoreService:
         Returns:
             List of messages
         """
+        # Check cache first
+        cache_key = f"messages:{user_id}:{session_id}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            logger.debug(f"Messages for session {session_id} retrieved from cache (count: {len(cached)})")
+            return cached
+        
         try:
             messages_ref = self.db.collection('users').document(user_id).collection('sessions').document(session_id).collection('messages')
+            
+            # Optimize: Use limit(1) first to check if collection is empty
+            # This is much faster than streaming all docs
+            first_check = messages_ref.limit(1).get()
+            
+            if not first_check:
+                # Collection is empty - cache and return immediately
+                logger.info(f"Retrieved 0 messages for session {session_id} (empty collection)")
+                cache.set(cache_key, [], ttl_seconds=60)
+                return []
+            
+            # Collection has messages - fetch them all
             query = messages_ref.order_by('timestamp', direction=firestore.Query.ASCENDING)
-
             docs = query.stream()
             messages = []
 
@@ -472,6 +554,10 @@ class FirestoreService:
                 msg_data = doc.to_dict()
                 msg_data['message_id'] = doc.id
                 messages.append(msg_data)
+
+            # Cache empty lists for new sessions with short TTL
+            if len(messages) == 0:
+                cache.set(cache_key, messages, ttl_seconds=60)
 
             logger.info(f"Retrieved {len(messages)} messages for session {session_id}")
             return messages
