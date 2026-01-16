@@ -47,7 +47,7 @@ class Config:
 
     # FastAPI Server
     FASTAPI_HOST: str = os.getenv("FASTAPI_HOST", "0.0.0.0")
-    FASTAPI_PORT: int = int(os.getenv("FASTAPI_PORT", "8000"))
+    FASTAPI_PORT: int = int(os.getenv("PORT", os.getenv("FASTAPI_PORT", "8000")))
 
     # LLM Parameters
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.7"))

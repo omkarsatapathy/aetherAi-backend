@@ -213,6 +213,7 @@ async def _fetch_persona_and_build_context(user_id: str) -> Tuple[str, Optional[
         # Fetch full user document to get displayName and persona (single read)
         user_data = await firestore_service.get_user(user_id)
         if user_data:
+            print(f"[DEBUG] Fetched user data for user_id={user_id}: \n\n{user_data}")
             # Extract first name from displayName (optimized: use partition for single-pass)
             display_name = user_data.get('displayName', '')
             first_name = display_name.partition(' ')[0] if display_name else None
@@ -270,6 +271,8 @@ async def quick_response(
         
         # Build enriched query (single concatenation)
         enriched_query = f"{persona_context}{time_context}{request.query}{INSTRUCTION_SUFFIX}"
+
+        print(f"\n[ENRICHED QUERY]: \n\n{enriched_query}\n")
         
         # Use async generate_content for non-blocking API call
         response = await client.aio.models.generate_content(
