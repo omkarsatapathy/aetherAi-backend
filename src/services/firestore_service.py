@@ -875,6 +875,67 @@ class FirestoreService:
             logger.error(f"Error getting user cost for {user_id}: {e}", exc_info=True)
             return None
 
+    async def check_user_balance(self, user_id: str) -> Dict:
+        """
+        Check if user has exceeded their monthly cost limit.
+
+        Args:
+            user_id: Firebase UID
+
+        Returns:
+            Dict with:
+                - has_balance: bool - True if user can make requests, False if limit exceeded
+                - total_cost_inr: float - Current total cost in INR
+                - limit_inr: float - Monthly limit in INR
+                - remaining_balance: float - Remaining balance in INR
+                - message: str - Status message
+        """
+        from src.config import Config  # Import here to avoid circular import
+
+        try:
+            limit_inr = Config.MONTHLY_COST_LIMIT_INR
+
+            # Get user's current cost
+            cost_data = await self.get_user_cost(user_id)
+
+            if cost_data is None:
+                # New user with no cost tracking - they have full balance
+                return {
+                    "has_balance": True,
+                    "total_cost_inr": 0.0,
+                    "limit_inr": limit_inr,
+                    "remaining_balance": limit_inr,
+                    "message": "Balance available"
+                }
+
+            total_cost_inr = cost_data.get('total_cost_inr', 0.0)
+            remaining_balance = max(0.0, limit_inr - total_cost_inr)
+            has_balance = total_cost_inr < limit_inr
+
+            if has_balance:
+                message = "Balance available"
+            else:
+                message = f"Monthly limit exceeded! You have consumed ₹{total_cost_inr:.2f} out of ₹{limit_inr:.2f}. Please recharge to continue using the service."
+
+            return {
+                "has_balance": has_balance,
+                "total_cost_inr": total_cost_inr,
+                "limit_inr": limit_inr,
+                "remaining_balance": remaining_balance,
+                "message": message
+            }
+
+        except Exception as e:
+            logger.error(f"Error checking user balance for {user_id}: {e}", exc_info=True)
+            # On error, allow the request to proceed (fail open for better UX)
+            return {
+                "has_balance": True,
+                "total_cost_inr": 0.0,
+                "limit_inr": 100.0,
+                "remaining_balance": 100.0,
+                "message": "Balance check unavailable, proceeding"
+            }
+
 
 # Create singleton instance
 firestore_service = FirestoreService()

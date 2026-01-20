@@ -36,10 +36,9 @@ class Config:
     OPENAI_MODEL_ID: str = os.getenv("OPENAI_MODEL_ID", "gpt-5-mini")
     OPENAI_EMBEDDING_MODEL: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 
-    # OpenAI TTS Configuration
-    OPENAI_TTS_MODEL: str = os.getenv("OPENAI_TTS_MODEL", "gpt-4o-mini-tts")
-    OPENAI_TTS_VOICE: str = os.getenv("OPENAI_TTS_VOICE", "marin")
-    OPENAI_TTS_SPEED: float = float(os.getenv("OPENAI_TTS_SPEED", "1.0"))
+    # Gemini TTS Configuration (Google Cloud)
+    GEMINI_TTS_MODEL: str = os.getenv("GEMINI_TTS_MODEL", "gemini-2.5-flash-preview-tts")
+    GEMINI_TTS_VOICE: str = os.getenv("GEMINI_TTS_VOICE", "Kore")
 
 
     # Gmail Configuration
@@ -65,6 +64,9 @@ class Config:
     # Total cost = LLM cost * (1 + API_OVERHEAD_PERCENTAGE)
     API_OVERHEAD_PERCENTAGE: float = float(os.getenv("API_OVERHEAD_PERCENTAGE", "0.40"))
 
+    # Monthly cost limit in INR - users exceeding this limit cannot make new requests
+    MONTHLY_COST_LIMIT_INR: float = float(os.getenv("MONTHLY_COST_LIMIT_INR", "100.0"))
+
     # LLM Model Pricing per 1 Million tokens (USD) - Updated Dec 2025
     # Source: https://ai.google.dev/gemini-api/docs/pricing
     # Format: {"input": price_per_1M_input_tokens, "output": price_per_1M_output_tokens}
@@ -89,6 +91,7 @@ class Config:
     TTS_PRICING: dict = {
         "tts-1": 15.00,
         "tts-1-hd": 30.00,
+        "gemini-2.5-flash-preview-tts": 0.80,  # Gemini TTS pricing
     }
 
     # USD to INR conversion rate
@@ -581,9 +584,9 @@ USER CONTEXT: If [INTERNAL USER CONTEXT] is provided, use it to tailor code styl
         return cls.OPENAI_API_KEY, cls.OPENAI_EMBEDDING_MODEL
 
     @classmethod
-    def get_tts_config(cls) -> tuple[str, str, float]:
-        """Get OpenAI TTS configuration."""
-        return cls.OPENAI_TTS_MODEL, cls.OPENAI_TTS_VOICE, cls.OPENAI_TTS_SPEED
+    def get_tts_config(cls) -> tuple[str, str]:
+        """Get Gemini TTS configuration."""
+        return cls.GEMINI_TTS_MODEL, cls.GEMINI_TTS_VOICE
 
 
 # Initialize and validate config on import

@@ -1,4 +1,4 @@
-"""Voice generation endpoint."""
+"""Voice generation endpoint using Google Gemini 2.5 Flash TTS."""
 import hashlib
 import os
 from pathlib import Path
@@ -28,7 +28,7 @@ class VoiceRequest(BaseModel):
 @router.post("/voice/generate")
 async def generate_voice(request: VoiceRequest):
     """
-    Generate speech from text using OpenAI's TTS API.
+    Generate speech from text using Google Gemini 2.5 Flash TTS.
     Saves audio to disk and returns the file. If audio already exists, returns cached version.
 
     Args:
@@ -54,7 +54,7 @@ async def generate_voice(request: VoiceRequest):
         # Check if audio file already exists
         if audio_filepath.exists():
             logger.info(f"[VOICE] Audio file already exists! Using cached version: {audio_filepath}")
-            logger.info(f"[VOICE] Saved OpenAI API call! File size: {audio_filepath.stat().st_size} bytes")
+            logger.info(f"[VOICE] Saved Gemini API call! File size: {audio_filepath.stat().st_size} bytes")
 
             # Determine content type
             content_types = {
@@ -75,7 +75,7 @@ async def generate_voice(request: VoiceRequest):
             )
 
         # Generate new audio
-        logger.info(f"[VOICE] Audio not cached, generating new audio via OpenAI API...")
+        logger.info(f"[VOICE] Audio not cached, generating new audio via Gemini TTS API...")
         voice_generator = get_voice_generator()
 
         audio_data = voice_generator.generate_speech(
@@ -130,7 +130,7 @@ async def get_voice_cost():
     """
     try:
         tracker = get_request_tracker()
-        cost_data = tracker.calculate_cost(model_id="gpt-4o-mini", tts_model_id="tts-1")
+        cost_data = tracker.calculate_cost(model_id="gemini-2.5-flash", tts_model_id="gemini-2.5-flash-preview-tts")
 
         return JSONResponse(content={
             "cost_inr": cost_data["total_cost_inr"],

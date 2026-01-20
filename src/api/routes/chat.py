@@ -1,4 +1,5 @@
 """Chat streaming endpoint - Google ADK only."""
+import json
 from fastapi import APIRouter, Query, Depends
 from fastapi.responses import StreamingResponse
 from src.api.models import ChatRequest, LocationSubmitRequest
@@ -7,12 +8,29 @@ from src.middleware.auth_middleware import get_current_user, get_user_id_from_to
 from src.logging_config import get_logger
 from src.config import Config
 from src.tools.google_maps import set_user_location
-from typing import Optional, List, Dict, Any
+from src.services.firestore_service import firestore_service
+from typing import Optional, List, Dict, Any, AsyncGenerator
 from pydantic import BaseModel
 
 logger = get_logger("chatbot.routes.chat")
 
 router = APIRouter(prefix="/api", tags=["chat"])
+
+
+async def balance_exceeded_stream(balance_info: Dict) -> AsyncGenerator[str, None]:
+    """
+    Generate a streaming response when user has exceeded their balance limit.
+    """
+    error_message = balance_info.get("message", "Monthly limit exceeded. Please recharge to continue.")
+    error_data = {
+        "type": "balance_exceeded",
+        "message": error_message,
+        "total_cost_inr": balance_info.get("total_cost_inr", 0),
+        "limit_inr": balance_info.get("limit_inr", 100),
+        "remaining_balance": balance_info.get("remaining_balance", 0)
+    }
+    yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
+    yield "data: [DONE]\n\n"
 
 
 # Preference response model for shopping workflow
@@ -58,6 +76,20 @@ async def chat_stream_post(request: ChatStreamRequest, current_user: dict = Depe
     """
     # Extract user_id from authenticated token
     user_id = get_user_id_from_token(current_user)
+
+    # Check user balance before processing request
+    balance_info = await firestore_service.check_user_balance(user_id)
+    if not balance_info.get("has_balance", True):
+        logger.warning(f"[ADK] User {user_id} has exceeded monthly limit: ₹{balance_info.get('total_cost_inr', 0):.2f}")
+        return StreamingResponse(
+            balance_exceeded_stream(balance_info),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
 
     # Handle both formats
     message = request.content if request.content else request.message

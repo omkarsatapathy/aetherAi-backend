@@ -30,6 +30,23 @@ logger = get_logger("chatbot.routes.code_gen")
 
 router = APIRouter(prefix="/api", tags=["code-generation"])
 
+
+async def balance_exceeded_stream(balance_info: dict) -> AsyncGenerator[str, None]:
+    """
+    Generate a streaming response when user has exceeded their balance limit.
+    """
+    error_message = balance_info.get("message", "Monthly limit exceeded. Please recharge to continue.")
+    error_data = {
+        "type": "balance_exceeded",
+        "message": error_message,
+        "total_cost_inr": balance_info.get("total_cost_inr", 0),
+        "limit_inr": balance_info.get("limit_inr", 100),
+        "remaining_balance": balance_info.get("remaining_balance", 0)
+    }
+    yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
+    yield "data: [DONE]\n\n"
+
+
 # ============== MODEL CONFIGURATION ==============
 
 class ModelProvider(str, Enum):
@@ -454,6 +471,20 @@ async def code_gen_stream(
     """
     user_id = get_user_id_from_token(current_user)
     session_id = request.session_id
+
+    # Check user balance before processing request
+    balance_info = await firestore_service.check_user_balance(user_id)
+    if not balance_info.get("has_balance", True):
+        logger.warning(f"[CodeGen] User {user_id} has exceeded monthly limit: ₹{balance_info.get('total_cost_inr', 0):.2f}")
+        return StreamingResponse(
+            balance_exceeded_stream(balance_info),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
 
     # Create session if session_id is provided but doesn't exist
     if session_id and user_id:
