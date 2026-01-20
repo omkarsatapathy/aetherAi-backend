@@ -34,6 +34,7 @@ DEFAULT_LATITUDE = 17.473863
 DEFAULT_LONGITUDE = 78.351742
 
 # Global session state storage for location data
+
 _session_location_store = {}
 
 
