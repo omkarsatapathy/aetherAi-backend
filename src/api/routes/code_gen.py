@@ -17,6 +17,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Optional, Literal, AsyncGenerator
 from enum import Enum
+import json
 from google import genai
 from google.genai.types import GenerateContentConfig, ThinkingConfig
 from src.middleware.auth_middleware import get_current_user, get_user_id_from_token
@@ -215,8 +216,8 @@ async def generate_code_stream(
                 if chunk.text:
                     # Estimate output tokens from chunk
                     output_tokens += len(chunk.text) // 4
-                    # Format as SSE
-                    yield f"data: {chunk.text}\n\n"
+                    # Format as SSE - JSON encode to preserve newlines
+                    yield f"data: {json.dumps(chunk.text)}\n\n"
 
                 # Try to get actual usage from chunk if available
                 if hasattr(chunk, 'usage_metadata') and chunk.usage_metadata:
@@ -231,7 +232,8 @@ async def generate_code_stream(
         #     pass
 
         else:
-            yield f"data: Error: Unsupported model '{model}'\n\n"
+            error_msg = f"Error: Unsupported model '{model}'"
+            yield f"data: {json.dumps(error_msg)}\n\n"
             return
 
         # Calculate and track costs
