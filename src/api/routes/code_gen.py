@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, Literal, AsyncGenerator
 from enum import Enum
 import json
+import asyncio
 from google import genai
 from google.genai.types import GenerateContentConfig, ThinkingConfig
 from src.middleware.auth_middleware import get_current_user, get_user_id_from_token
@@ -112,6 +113,10 @@ def get_vertex_client() -> genai.Client:
 class CodeGenRequest(BaseModel):
     """Request model for code generation."""
     query: str = Field(..., description="The user's coding question or request", min_length=1)
+    session_id: Optional[str] = Field(
+        default=None,
+        description="Session ID for message logging. If not provided, messages won't be saved to Firestore."
+    )
     model: Optional[str] = Field(
         default=DEFAULT_MODEL.value,
         description="Model to use for generation. Default: gemini-3-pro-preview"
@@ -179,19 +184,23 @@ async def generate_code_stream(
     query: str,
     model: str = DEFAULT_MODEL.value,
     thinking_level: str = "LOW",
-    user_id: Optional[str] = None
+    user_id: Optional[str] = None,
+    session_id: Optional[str] = None
 ) -> AsyncGenerator[str, None]:
     """
     Generate streaming code response using specified model.
     Tracks token usage and updates user cost in Firestore.
+    Saves messages to Firestore if session_id is provided.
 
     Yields:
         Server-Sent Events (SSE) formatted chunks
     """
     input_tokens = 0
     output_tokens = 0
+    final_response = ""  # Store complete response for message logging
 
     print(f"\n\nGenerating code stream with model: {model}, thinking_level: {thinking_level}")
+    print(f"Session ID: {session_id}, User ID: {user_id}")
 
     try:
         # Build the full prompt with system context
@@ -214,6 +223,9 @@ async def generate_code_stream(
                 config=config,
             ):
                 if chunk.text:
+                    # Accumulate response for message logging
+                    final_response += chunk.text
+                    
                     # Estimate output tokens from chunk
                     output_tokens += len(chunk.text) // 4
                     # Format as SSE - JSON encode to preserve newlines
@@ -256,6 +268,35 @@ async def generate_code_stream(
             except Exception as cost_err:
                 logger.warning(f"Failed to update user cost: {cost_err}")
 
+        # Save messages to Firestore in background (non-blocking)
+        async def save_code_messages_background():
+            """Background task to save code generation messages without blocking the response."""
+            try:
+                if user_id and session_id:
+                    # Save user query
+                    await firestore_service.add_message(
+                        user_id=user_id,
+                        session_id=session_id,
+                        role='user',
+                        content=query
+                    )
+                    logger.info(f"💾 [CodeGen] Saved user query to Firestore (session: {session_id})")
+
+                    # Save assistant response
+                    await firestore_service.add_message(
+                        user_id=user_id,
+                        session_id=session_id,
+                        role='assistant',
+                        content=final_response
+                    )
+                    logger.info(f"💾 [CodeGen] Saved assistant response to Firestore (session: {session_id})")
+            except Exception as save_error:
+                logger.error(f"❌ [CodeGen] Failed to save messages to Firestore: {save_error}", exc_info=True)
+
+        # Create background task to save messages (fire and forget)
+        if user_id and session_id:
+            asyncio.create_task(save_code_messages_background())
+
         # Send usage metadata before completion
         usage_json = f'{{"input_tokens":{input_tokens},"output_tokens":{output_tokens},"total_cost_inr":{cost_data["total_cost_inr"]:.4f}}}'
         yield f"data: [USAGE]{usage_json}[/USAGE]\n\n"
@@ -280,6 +321,7 @@ async def code_gen_stream(
 
     Requires Firebase Authentication.
     Tracks token usage and costs per user.
+    Saves messages to Firestore if session_id is provided.
 
     **Supported Models:**
     - `gemini-3-pro-preview` (default) - Google's Gemini 3 Pro with thinking capabilities
@@ -295,17 +337,37 @@ async def code_gen_stream(
     **Cost:** ~$2/1M input tokens, ~$12/1M output tokens + 40% API overhead
     """
     user_id = get_user_id_from_token(current_user)
+    session_id = request.session_id
 
-    logger.info(f"[CodeGen] Stream request - User: {user_id}")
+    # Create session if session_id is provided but doesn't exist
+    if session_id and user_id:
+        try:
+            existing_session = await firestore_service.get_session(user_id, session_id)
+            if not existing_session:
+                await firestore_service.create_session(
+                    user_id=user_id,
+                    session_id=session_id,
+                    title="New Code Session",
+                    mode="code"
+                )
+                logger.info(f"✨ [CodeGen] Created new code session: {session_id}")
+        except Exception as session_err:
+            logger.warning(f"⚠️ [CodeGen] Failed to create session: {session_err}")
+
+    logger.info(f"[CodeGen] Stream request - User: {user_id}, Session: {session_id}")
     logger.info(f"[CodeGen] Model: {request.model}, Thinking: {request.thinking_level}")
     logger.info(f"[CodeGen] Query: {request.query[:100]}...")
+
+    # HARDCODED: Always use Gemini 3 Pro regardless of frontend request
+    hardcoded_model = "gemini-3-pro-preview"
 
     return StreamingResponse(
         generate_code_stream(
             query=request.query,
-            model=request.model,
+            model=hardcoded_model,
             thinking_level=request.thinking_level,
-            user_id=user_id
+            user_id=user_id,
+            session_id=session_id
         ),
         media_type="text/event-stream",
         headers={
@@ -324,16 +386,22 @@ async def code_gen_stream_test(request: CodeGenRequest):
     Remove this endpoint in production!
 
     Note: Cost tracking is disabled for test endpoint.
+    Message saving is also disabled unless session_id is provided with "test-user" as user_id.
     """
     logger.info(f"[CodeGen-Test] Model: {request.model}, Thinking: {request.thinking_level}")
     logger.info(f"[CodeGen-Test] Query: {request.query[:100]}...")
+    logger.info(f"[CodeGen-Test] Session ID: {request.session_id}")
+
+    # HARDCODED: Always use Gemini 3 Pro regardless of frontend request
+    hardcoded_model = "gemini-3-pro-preview"
 
     return StreamingResponse(
         generate_code_stream(
             query=request.query,
-            model=request.model,
+            model=hardcoded_model,
             thinking_level=request.thinking_level,
-            user_id=None  # No cost tracking for test endpoint
+            user_id=None,  # No cost tracking for test endpoint
+            session_id=None  # No message saving for test endpoint
         ),
         media_type="text/event-stream",
         headers={

@@ -189,7 +189,7 @@ class FirestoreService:
 
     # ==================== SESSION MANAGEMENT ====================
 
-    async def create_session(self, user_id: str, session_id: str, title: str) -> dict:
+    async def create_session(self, user_id: str, session_id: str, title: str, mode: str = 'chat') -> dict:
         """
         Create a new chat session.
 
@@ -197,6 +197,7 @@ class FirestoreService:
             user_id: Firebase UID
             session_id: Session ID
             title: Session title
+            mode: Session mode - 'chat' or 'code' (default: 'chat')
 
         Returns:
             Created session data
@@ -210,6 +211,7 @@ class FirestoreService:
             session_data = {
                 'session_id': session_id,
                 'title': title,
+                'mode': mode,
                 'has_documents': False,
                 'vector_db_path': None,
                 'created_at': now,
@@ -293,7 +295,7 @@ class FirestoreService:
             logger.error(f"Error listing sessions: {e}", exc_info=True)
             return []
 
-    async def update_session_title(self, user_id: str, session_id: str, title: str, force: bool = False) -> bool:
+    async def update_session_title(self, user_id: str, session_id: str, title: str, mode: str = None, force: bool = False) -> bool:
         """
         Update session title only if current title is "New Chat" (unless force=True).
         This prevents overwriting user-modified titles.
@@ -302,6 +304,7 @@ class FirestoreService:
             user_id: Firebase UID
             session_id: Session ID
             title: New title
+            mode: Optional session mode - 'chat' or 'code'
             force: If True, update title regardless of current value (for manual user edits)
 
         Returns:
@@ -320,31 +323,35 @@ class FirestoreService:
             session_data = session_doc.to_dict()
             current_title = session_data.get('title', '')
 
+            # Build update dict
+            update_dict = {
+                'title': title,
+                'updated_at': firestore.SERVER_TIMESTAMP
+            }
+            
+            # Add mode if provided
+            if mode:
+                update_dict['mode'] = mode
+
             # If force=True (manual user edit), always update
             if force:
-                session_ref.update({
-                    'title': title,
-                    'updated_at': firestore.SERVER_TIMESTAMP
-                })
+                session_ref.update(update_dict)
                 # Invalidate cache
                 cache_key = f"session:{user_id}:{session_id}"
                 cache.delete(cache_key)
                 logger.info(f"✅ Session {session_id} title forcefully updated to '{title}' (manual edit)")
                 return True
 
-            # Otherwise, only update if current title is "New Chat"
-            if current_title == 'New Chat':
-                session_ref.update({
-                    'title': title,
-                    'updated_at': firestore.SERVER_TIMESTAMP
-                })
+            # Otherwise, only update if current title is "New Chat" or "New Code Session"
+            if current_title in ['New Chat', 'New Code Session']:
+                session_ref.update(update_dict)
                 # Invalidate cache
                 cache_key = f"session:{user_id}:{session_id}"
                 cache.delete(cache_key)
-                logger.info(f"✅ Session {session_id} title updated from 'New Chat' to '{title}'")
+                logger.info(f"✅ Session {session_id} title updated from '{current_title}' to '{title}'")
                 return True
             else:
-                logger.info(f"⚠️ Skipping title update for session {session_id} - current title is not 'New Chat': '{current_title}'")
+                logger.info(f"⚠️ Skipping title update for session {session_id} - current title is not 'New Chat' or 'New Code Session': '{current_title}'")
                 return False
 
         except Exception as e:
