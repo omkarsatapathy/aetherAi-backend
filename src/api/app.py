@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from src.database import DatabaseManager
 from src.config import Config
 from src.logging_config import setup_logging
-from .routes import chat, sessions, messages, documents, models, voice, setup, image, config, gmail_auth, user_info, feedback, quick_response
+from .routes import chat, sessions, messages, documents, models, voice, setup, image, config, gmail_auth, user_info, feedback, quick_response, code_gen
 
 # Setup logging
 logger = setup_logging(Config.LOG_LEVEL, Config.LOG_TO_FILE, Config.LOG_TO_CONSOLE)
@@ -53,8 +53,9 @@ def create_app() -> FastAPI:
     app.include_router(user_info.router)
     app.include_router(feedback.router)  # User feedback routes
     app.include_router(quick_response.router)  # Quick response endpoint
-    
-    logger.info("✅ All routers registered, including quick response router")
+    app.include_router(code_gen.router)  # Code generation streaming endpoint
+
+    logger.info("✅ All routers registered, including quick response and code generation routers")
     
     # Root endpoint
     @app.get("/")

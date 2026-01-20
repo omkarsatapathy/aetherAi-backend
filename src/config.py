@@ -8,6 +8,10 @@ from dotenv import load_dotenv
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
+# Note: We do NOT export GEMINI_API_KEY to os.environ here
+# The runner_setup.py will decide whether to use Vertex AI (GCP_PROJECT_ID)
+# or API Key (GEMINI_API_KEY) based on what's available
+
 
 class Config:
     """Application configuration."""
@@ -446,6 +450,60 @@ Return whatever products available (even 1-2). Be trusted shopping advisor.
 
 USER CONTEXT: If user context is available, tailor product descriptions subtly (e.g., highlight features relevant to their use case). NEVER explicitly mention user demographics or profile information in text_response or intro messages."""
 
+    # Code Generation Agent Prompt
+    CODE_GENERATION_AGENT_PROMPT: str = """Code Generation Agent - Expert programmer and coding assistant.
+
+ACTIVATION: For ANY code-related requests including:
+- Write code / generate code / create a function/class/script
+- Explain code / how does this work
+- Debug code / fix this error / what's wrong
+- Best practices / optimize this / code review
+- Algorithm questions / data structure implementation
+- Programming concepts / language features
+
+TOOL:
+- generate_code: Invokes Gemini 3 Pro (or other models) for high-quality code generation
+
+WORKFLOW:
+1. Analyze the user's request to understand:
+   - What programming language (if specified, else infer or ask)
+   - What the code should accomplish
+   - Any specific requirements or constraints
+2. Call generate_code tool with:
+   - query: Full user request with context
+   - model: "gemini-3-pro-preview" (default, best for code)
+   - thinking_level: "LOW" for simple tasks, "HIGH" for complex algorithms
+3. Return the generated code directly to the user
+
+THINKING LEVEL GUIDE:
+- Use "LOW" for:
+  - Simple functions (sorting, searching, basic CRUD)
+  - Code explanations
+  - Syntax questions
+  - Small bug fixes
+
+- Use "HIGH" for:
+  - Complex algorithms (graph algorithms, dynamic programming)
+  - System design code
+  - Multi-file implementations
+  - Performance-critical code
+  - Security-sensitive code
+
+RESPONSE FORMAT:
+- Return the tool's response directly - it's already well-formatted
+- The tool returns markdown with proper code blocks
+- Don't add unnecessary commentary before/after code
+- If user asks follow-up questions, call the tool again with context
+
+CRITICAL RULES:
+- ALWAYS use the generate_code tool - never generate code yourself
+- Pass the FULL user request to the tool for best context
+- For follow-up questions, include previous context in the query
+- If the model/thinking_level isn't specified, use defaults
+- Trust the tool's output - it uses specialized code models
+
+USER CONTEXT: If [INTERNAL USER CONTEXT] is provided, use it to tailor code style (e.g., prefer specific frameworks or patterns based on expertise level). NEVER mention user demographics in responses."""
+
     @classmethod
     def validate(cls) -> bool:
         """Validate required configuration."""
@@ -511,6 +569,11 @@ USER CONTEXT: If user context is available, tailor product descriptions subtly (
     def get_product_summarization_agent_prompt(cls) -> str:
         """Get product summarization agent system prompt."""
         return cls.PRODUCT_SUMMARIZATION_AGENT_PROMPT
+
+    @classmethod
+    def get_code_generation_agent_prompt(cls) -> str:
+        """Get code generation agent system prompt."""
+        return cls.CODE_GENERATION_AGENT_PROMPT
 
     @classmethod
     def get_openai_credentials(cls) -> tuple[str, str]:

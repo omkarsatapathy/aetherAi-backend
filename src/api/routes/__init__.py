@@ -1,4 +1,4 @@
 """API route modules."""
-from . import chat, sessions, messages, documents, setup, image, config, feedback
+from . import chat, sessions, messages, documents, setup, image, config, feedback, code_gen
 
-__all__ = ['chat', 'sessions', 'messages', 'documents', 'setup', 'image', 'config', 'feedback']
+__all__ = ['chat', 'sessions', 'messages', 'documents', 'setup', 'image', 'config', 'feedback', 'code_gen']

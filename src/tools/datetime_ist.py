@@ -34,14 +34,12 @@ def get_current_datetime_ist() -> str:
 
 time_tools  = FunctionTool(func=get_current_datetime_ist)
 
-# Get API key from environment
+# Get API key from environment (if needed - Vertex AI is preferred)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY not found in environment variables. Please set it in your .env file.")
-
-# Set the API key as environment variable for Google GenAI
-os.environ['GOOGLE_API_KEY'] = GEMINI_API_KEY
+# Note: We don't set GOOGLE_API_KEY here anymore
+# The system uses Vertex AI authentication via GCP_PROJECT_ID
+# This avoids API rate limits and uses Application Default Credentials
 
 time_agent = Agent(
     model=Config.GEMINI_MODEL_ID,

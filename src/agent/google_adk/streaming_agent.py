@@ -343,7 +343,9 @@ Answer:"""
             'get_tomorrow_forecast': 'Getting tomorrow\'s forecast',
             'get_five_day_forecast': 'Getting 5-day forecast',
             # Location
-            'get_location_name': 'Getting your location'
+            'get_location_name': 'Getting your location',
+            # Code generation
+            'generate_code': 'Generating code'
         }
 
         # Track state

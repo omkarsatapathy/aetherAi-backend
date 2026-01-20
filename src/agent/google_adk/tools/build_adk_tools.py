@@ -26,6 +26,7 @@ from ....tools.weather_tools import (
     get_tomorrow_forecast,
     get_five_day_forecast
 )
+from ....tools.code_generation import generate_code
 
 
 # ====================
@@ -92,6 +93,12 @@ tomorrow_forecast_tool = FunctionTool(func=get_tomorrow_forecast)
 five_day_forecast_tool = FunctionTool(func=get_five_day_forecast)
 
 
+# ====================
+# Code Generation Tools
+# ====================
+code_generation_tool = FunctionTool(func=generate_code)
+
+
 # Export all wrapped tools
 __all__ = [
     # Gmail
@@ -122,4 +129,6 @@ __all__ = [
     'hourly_forecast_tool',
     'tomorrow_forecast_tool',
     'five_day_forecast_tool',
+    # Code Generation
+    'code_generation_tool',
 ]

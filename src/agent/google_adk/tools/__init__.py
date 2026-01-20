@@ -31,6 +31,8 @@ from .build_adk_tools import (
     hourly_forecast_tool,
     tomorrow_forecast_tool,
     five_day_forecast_tool,
+    # Code generation tools
+    code_generation_tool,
 )
 
 __all__ = [
@@ -62,4 +64,6 @@ __all__ = [
     'hourly_forecast_tool',
     'tomorrow_forecast_tool',
     'five_day_forecast_tool',
+    # Code Generation
+    'code_generation_tool',
 ]

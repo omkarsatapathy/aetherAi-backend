@@ -1,0 +1,35 @@
+[33m[1m[WARNING][0m 2026-01-20 12:20:29 [33mchatbot.tools.link_executor[0m - Playwright not available. Install with: pip install playwright && playwright install chromium
+[32m[1m[INFO][0m 2026-01-20 12:20:29 [32mchatbot.firebase_admin[0m - Initializing Firebase with service account: ./firebase-service-account.json
+[32m[1m[INFO][0m 2026-01-20 12:20:29 [32mchatbot.firebase_admin[0m - Firebase Admin SDK initialized successfully
+[32m[1m[INFO][0m 2026-01-20 12:20:29 [32mchatbot.cache[0m - 🔧 Using in-memory cache (local development mode)
+============================================================
+AUTHENTICATION SETUP TEST
+============================================================
+
+Before ADKAgentRunner init:
+  GCP_PROJECT_ID: aetherai-c7218
+  GEMINI_API_KEY: SET
+  GOOGLE_API_KEY: SET
+  GOOGLE_CLOUD_PROJECT: NOT SET
+
+============================================================
+Initializing ADKAgentRunner...
+============================================================
+[32m[1m[INFO][0m 2026-01-20 12:20:29 [32mchatbot.adk_runner[0m - ✓ Using Vertex AI authentication with project: aetherai-c7218
+[32m[1m[INFO][0m 2026-01-20 12:20:29 [32mchatbot.adk_runner[0m - ✓ ADKAgentRunner initialized for 'AetherAI_ADK_MultiAgent'
+
+✅ ADKAgentRunner initialized successfully!
+
+After ADKAgentRunner init:
+  GCP_PROJECT_ID: aetherai-c7218
+  GEMINI_API_KEY: SET
+  GOOGLE_API_KEY: SET
+  GOOGLE_CLOUD_PROJECT: SET
+
+============================================================
+✅ CONFIGURED FOR VERTEX AI AUTHENTICATION
+   Project: aetherai-c7218
+   ✓ No API rate limits!
+   ✓ ADK Agent uses Vertex AI
+   ✓ Code Generation Tool uses Vertex AI
+============================================================

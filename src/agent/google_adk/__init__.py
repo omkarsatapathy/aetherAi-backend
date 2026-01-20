@@ -21,7 +21,8 @@ from .sub_agents import (
     create_email_agent,
     create_news_reader_agent,
     create_maps_agent,
-    create_researcher_agent
+    create_researcher_agent,
+    create_code_generation_agent
 )
 from .model_providers import (
     ADKModelProviderFactory,
@@ -45,6 +46,7 @@ __all__ = [
     'create_news_reader_agent',
     'create_maps_agent',
     'create_researcher_agent',
+    'create_code_generation_agent',
     # Model Providers
     'ADKModelProviderFactory',
     'get_adk_model',

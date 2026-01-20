@@ -59,16 +59,31 @@ class ADKAgentRunner:
         self.streaming_context = None
         self.runner = None
 
-        # Verify API key is set
+        # Verify authentication is configured
+        # We support two auth methods:
+        # 1. Vertex AI (preferred) - uses GCP_PROJECT_ID for Vertex AI authentication
+        # 2. API Key (fallback) - uses GEMINI_API_KEY for direct API authentication
+        
+        gcp_project = os.getenv("GCP_PROJECT_ID")
         api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
+        
+        if gcp_project:
+            # Vertex AI authentication (preferred - no rate limits)
+            logger.info(f"✓ Using Vertex AI authentication with project: {gcp_project}")
+            # Set for ADK to use Vertex AI
+            os.environ['GOOGLE_CLOUD_PROJECT'] = gcp_project
+            # Don't set GOOGLE_API_KEY - let it use Application Default Credentials
+        elif api_key:
+            # API Key authentication (fallback - may hit rate limits)
+            logger.warning("⚠️  Using API Key authentication - may encounter rate limits")
+            logger.warning("⚠️  Consider using Vertex AI authentication by setting GCP_PROJECT_ID")
+            os.environ['GOOGLE_API_KEY'] = api_key
+        else:
             raise ValueError(
-                "GEMINI_API_KEY not found in environment variables. "
-                "Please set it in your .env file."
+                "Neither GCP_PROJECT_ID nor GEMINI_API_KEY found in environment. "
+                "Please set GCP_PROJECT_ID for Vertex AI auth (recommended) "
+                "or GEMINI_API_KEY for API key auth in your .env file."
             )
-
-        # Set the API key for Google GenAI
-        os.environ['GOOGLE_API_KEY'] = api_key
 
         logger.info(f"✓ ADKAgentRunner initialized for '{self.app_name}'")
 

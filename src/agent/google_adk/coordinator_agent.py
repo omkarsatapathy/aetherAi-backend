@@ -17,7 +17,8 @@ from .sub_agents import (
     create_maps_agent,
     create_researcher_agent,
     create_shopping_assist_agent,
-    create_weather_agent
+    create_weather_agent,
+    create_code_generation_agent
 )
 from .callbacks import ADKCallbackHandler, StreamingCallbackContext
 from .tools import datetime_ist_tool, query_documents_tool
@@ -124,6 +125,15 @@ def create_coordinator_agent(
         after_tool_callback=callbacks.get('after_tool_callback'),
     )
 
+    code_generation_agent = create_code_generation_agent(
+        before_agent_callback=callbacks.get('before_agent_callback'),
+        after_agent_callback=callbacks.get('after_agent_callback'),
+        before_model_callback=callbacks.get('before_model_callback'),
+        after_model_callback=callbacks.get('after_model_callback'),
+        before_tool_callback=callbacks.get('before_tool_callback'),
+        after_tool_callback=callbacks.get('after_tool_callback'),
+    )
+
     # Get the model - supports Gemini (native) and other providers via LiteLLM
     if model_provider:
         try:
@@ -148,7 +158,8 @@ def create_coordinator_agent(
             "- MapsAgent: For locations, directions, traffic, and place recommendations\n"
             "- ResearcherAgent: For deep research, formal reports, and analytical investigations\n"
             "- ShoppingAssistAgent: For product shopping, buying assistance, and purchase recommendations\n"
-            "- WeatherAgent: For weather forecasts, hourly forecasts, and weather conditions"
+            "- WeatherAgent: For weather forecasts, hourly forecasts, and weather conditions\n"
+            "- CodeGenerationAgent: For writing code, explaining code, debugging, and programming help"
         ),
         # Sub-agents for delegation
         sub_agents=[
@@ -157,7 +168,8 @@ def create_coordinator_agent(
             maps_agent,
             researcher_agent,
             shopping_assist_agent,
-            weather_agent
+            weather_agent,
+            code_generation_agent
         ],
         # Coordinator's own tools
         tools=[datetime_ist_tool, query_documents_tool],
@@ -181,7 +193,9 @@ def create_coordinator_agent(
             "   - For RESEARCH requests (detailed analysis, formal report, comparison, investigation):\n"
             "     → Use transfer_to_agent() to delegate to ResearcherAgent\n"
             "   - For SHOPPING requests (buy, purchase, shop, product search, looking to buy, want to buy):\n"
-            "     → Use transfer_to_agent() to delegate to ShoppingAssistAgent\n\n"
+            "     → Use transfer_to_agent() to delegate to ShoppingAssistAgent\n"
+            "   - For CODE requests (write code, generate code, explain code, debug, fix error, programming help, algorithm, function, class, script):\n"
+            "     → Use transfer_to_agent() to delegate to CodeGenerationAgent\n\n"
 
             "3. DISTINGUISHING NEWS vs RESEARCH:\n"
             "   - NewsReaderAgent: Quick updates, daily briefing, conversational storytelling\n"
