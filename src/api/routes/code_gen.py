@@ -203,6 +203,85 @@ async def generate_code_stream(
     print(f"Session ID: {session_id}, User ID: {user_id}")
 
     try:
+        # Generate and send session title for first message
+        if user_id and session_id:
+            try:
+                # Check if this is the first message in the session
+                messages = await firestore_service.get_messages(user_id, session_id)
+                is_first_message = len(messages) == 0
+                
+                if is_first_message:
+                    logger.info(f"📝 [CodeGen] Generating session title for first message")
+                    
+                    # Generate a short title using a simple LLM call
+                    title_prompt = f"""Generate a very short, concise title (3-5 words maximum) for a code session based on this user query: "{query}"
+
+Examples:
+User: "How do I sort a list in Python?"
+Answer: Python list sorting
+
+User: "Create a REST API with FastAPI"
+Answer: FastAPI REST API
+
+User: "Explain how async/await works"
+Answer: Async/await explanation
+
+Now generate ONLY the title for: "{query}"
+Answer:"""
+
+                    # Use Gemini to generate title
+                    def generate_title_sync():
+                        client = genai.Client(
+                            vertexai=True,
+                            project="effortless-lock-329115",
+                            location="global"
+                        )
+                        response = client.models.generate_content(
+                            model="gemini-3-pro-preview",
+                            contents=title_prompt
+                        )
+                        return response
+
+                    # Run in executor to avoid blocking
+                    loop = asyncio.get_running_loop()
+                    title_response = await loop.run_in_executor(None, generate_title_sync)
+                    
+                    session_title = title_response.text.strip().strip('"').strip("'")
+                    
+                    # Remove common prefixes
+                    for prefix in ["Title:", "Answer:", "Response:", "Code:"]:
+                        if session_title.startswith(prefix):
+                            session_title = session_title[len(prefix):].strip()
+                            break
+                    
+                    # Ensure it's not too long
+                    if len(session_title.split()) > 5:
+                        session_title = ' '.join(session_title.split()[:5])
+                    
+                    logger.info(f"✅ [CodeGen] Generated session title: {session_title}")
+                    
+                    # Send session description event as first stream
+                    yield f"event: session_description\ndata: {json.dumps({'description': session_title, 'session_id': session_id})}\n\n"
+                    
+                    # Update session title in Firestore immediately
+                    try:
+                        success = await firestore_service.update_session_title(
+                            user_id=user_id,
+                            session_id=session_id,
+                            title=session_title
+                        )
+                        if success:
+                            logger.info(f"✅ [CodeGen] Updated session title in Firestore: {session_title}")
+                        else:
+                            logger.warning(f"⚠️ [CodeGen] Failed to update session title in Firestore")
+                    except Exception as title_error:
+                        logger.error(f"❌ [CodeGen] Error updating session title: {title_error}")
+                        
+            except Exception as e:
+                logger.error(f"❌ [CodeGen] Failed to generate session title: {e}")
+                # Continue without title generation
+                pass
+
         # Build the full prompt with system context
         full_prompt = f"{CODE_GENERATION_SYSTEM_PROMPT}\n\n## User Request:\n{query}"
 
