@@ -15,7 +15,7 @@ Features:
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from typing import Optional, Literal, AsyncGenerator
+from typing import Optional, Literal, AsyncGenerator, List
 from enum import Enum
 import json
 import asyncio
@@ -88,6 +88,11 @@ CODE_GENERATION_SYSTEM_PROMPT = """You are an expert software engineer and codin
 - If it's conceptual, give a clear explanation with examples if helpful
 - If the question is ambiguous, provide the most likely interpretation and note alternatives
 
+## What to do if you don't know or user asks about any topic not related to coding:
+- Politely inform the user that your expertise is focused on coding and software development. 
+- You dont have capacity to answer questions outside this domain. You are only here to help with coding related tasks.
+- Also say that kindly use the normal chat session, this chat sssion is dedicated to Coding ONLY ! you can do so by clciking the toggle botton avalable at top right corner for non coding related questions like, news, weather, general knowledge etc.
+
 Remember: Quality over quantity. A working, clean solution is better than an over-engineered one."""
 
 
@@ -110,6 +115,12 @@ def get_vertex_client() -> genai.Client:
 
 # ============== REQUEST/RESPONSE MODELS ==============
 
+class ConversationMessage(BaseModel):
+    """A single message in conversation history."""
+    role: Literal["user", "assistant"] = Field(..., description="Message role")
+    content: str = Field(..., description="Message content")
+
+
 class CodeGenRequest(BaseModel):
     """Request model for code generation."""
     query: str = Field(..., description="The user's coding question or request", min_length=1)
@@ -124,6 +135,10 @@ class CodeGenRequest(BaseModel):
     thinking_level: Optional[Literal["LOW", "HIGH"]] = Field(
         default="LOW",
         description="Thinking level for Gemini 3 Pro (LOW or HIGH). Default: LOW"
+    )
+    conversation_history: Optional[List[ConversationMessage]] = Field(
+        default=None,
+        description="Previous conversation messages for context"
     )
 
     class Config:
@@ -185,12 +200,21 @@ async def generate_code_stream(
     model: str = DEFAULT_MODEL.value,
     thinking_level: str = "LOW",
     user_id: Optional[str] = None,
-    session_id: Optional[str] = None
+    session_id: Optional[str] = None,
+    conversation_history: Optional[List[ConversationMessage]] = None
 ) -> AsyncGenerator[str, None]:
     """
     Generate streaming code response using specified model.
     Tracks token usage and updates user cost in Firestore.
     Saves messages to Firestore if session_id is provided.
+
+    Args:
+        query: The user's current coding question or request
+        model: Model to use for generation
+        thinking_level: Thinking level for Gemini 3 Pro
+        user_id: Firebase UID for cost tracking
+        session_id: Session ID for message logging
+        conversation_history: Previous messages for context
 
     Yields:
         Server-Sent Events (SSE) formatted chunks
@@ -282,8 +306,21 @@ Answer:"""
                 # Continue without title generation
                 pass
 
-        # Build the full prompt with system context
-        full_prompt = f"{CODE_GENERATION_SYSTEM_PROMPT}\n\n## User Request:\n{query}"
+        # Build the full prompt with system context and conversation history
+        prompt_parts = [CODE_GENERATION_SYSTEM_PROMPT]
+
+        # Add conversation history if provided
+        if conversation_history and len(conversation_history) > 0:
+            history_text = "\n\n## Previous Conversation:\n"
+            for msg in conversation_history:
+                role_label = "User" if msg.role == "user" else "Assistant"
+                history_text += f"{role_label}: {msg.content}\n\n"
+            prompt_parts.append(history_text)
+
+        # Add current user request
+        prompt_parts.append(f"\n\n## Current User Request:\n{query}")
+
+        full_prompt = "".join(prompt_parts)
 
         if model == ModelProvider.GEMINI_3_PRO.value:
             client = get_vertex_client()
@@ -436,6 +473,7 @@ async def code_gen_stream(
     logger.info(f"[CodeGen] Stream request - User: {user_id}, Session: {session_id}")
     logger.info(f"[CodeGen] Model: {request.model}, Thinking: {request.thinking_level}")
     logger.info(f"[CodeGen] Query: {request.query[:100]}...")
+    logger.info(f"[CodeGen] Conversation history: {len(request.conversation_history or [])} messages")
 
     # HARDCODED: Always use Gemini 3 Pro regardless of frontend request
     hardcoded_model = "gemini-3-pro-preview"
@@ -446,7 +484,8 @@ async def code_gen_stream(
             model=hardcoded_model,
             thinking_level=request.thinking_level,
             user_id=user_id,
-            session_id=session_id
+            session_id=session_id,
+            conversation_history=request.conversation_history
         ),
         media_type="text/event-stream",
         headers={
